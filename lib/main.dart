@@ -315,6 +315,15 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final messenger = ScaffoldMessenger.of(context);
+        if (_playing) {
+          // Leave the emulator the way the site's own EXIT button does — a
+          // plain history.back() leaves EmulatorJS loaded and the next game
+          // throws "EJS_STORAGE already declared".
+          await _controller.runJavaScript(
+            "(window.exitPlayer||function(){location.hash='#/play';location.reload();})();",
+          );
+          return;
+        }
         if (await _controller.canGoBack()) {
           await _controller.goBack();
           return;
