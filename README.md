@@ -4,9 +4,13 @@ Android app that opens the [ShadowSwords game library](https://shadow-1.tail51f9
 in a fullscreen WebView.
 
 - Immersive fullscreen (status/nav bars hidden)
-- Loading bar, pull-to-refresh
-- Offline "Retry" screen
-- Back button navigates web history, then double-press to exit
+- Branded splash screen
+- Keeps the screen awake while a game is running; unlocks rotation for games (portrait-locked while browsing)
+- External links (Movies/Jellyfin, Discord, YouTube) open in your browser
+- Long-press the icon for shortcuts: Play · Surprise me · Movies · Search
+- Tells you when a new APK is on GitHub
+- Loading bar, offline "Retry" screen
+- Back navigates web history, then double-press to exit
 
 ## Install
 
