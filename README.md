@@ -5,13 +5,22 @@ in a fullscreen WebView.
 
 - Immersive fullscreen (status/nav bars hidden)
 - Branded splash screen
-- Keeps the screen awake while a game is running; unlocks rotation for games (portrait-locked while browsing)
+- Keeps the screen awake during games; unlocks rotation for games (portrait for browsing)
+- Music keeps playing in the background (foreground service + lock-screen controls from the site)
 - External links (Movies/Jellyfin, Discord, YouTube) open in your browser
-- Long-press the icon for shortcuts: Play · Surprise me · Movies · Search
-- Tells you when a new APK is on GitHub
-- Loading bar, offline "Retry" screen
-- **Open a ROM file** from your file manager or a share sheet ("Play in ShadowSwords")
-- Back navigates web history, then double-press to exit
+- **Settings**: library URL, Wake-on-LAN, keep-screen-on, haptics, clear cache, update check
+- **Wake-on-LAN** — wakes the home server on launch / Retry (home Wi-Fi only)
+- Auto-retries when the network comes back; error screen has Retry / Tailscale / Settings
+- Open a ROM file ("Open with" / share sheet)
+- Deep links: `shadowswords://play`, `shadowswords://play/random`, `shadowswords://movies`
+- Home-screen widget (Play / Surprise me / Movies)
+- Long-press the icon: Play / Surprise me / Movies / Settings
+- Update notice when a new APK is on GitHub
+- Bluetooth controllers work (menu + in-game)
+
+**Gestures:** two-finger long-press = Settings · three-finger tap = screenshot to Pictures/ShadowSwords
+
+
 
 ## Install
 

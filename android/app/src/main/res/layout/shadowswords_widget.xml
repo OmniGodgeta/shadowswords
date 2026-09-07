@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="12dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ShadowSwords"
+        android:textColor="#E5E1F0"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:paddingBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:weightSum="3">
+
+        <TextView android:id="@+id/w_play"
+            android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginEnd="6dp"
+            android:background="@drawable/widget_btn"
+            android:gravity="center" android:text="Play"
+            android:textColor="#E5E1F0" android:textSize="13sp" />
+
+        <TextView android:id="@+id/w_random"
+            android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginHorizontal="3dp"
+            android:background="@drawable/widget_btn"
+            android:gravity="center" android:text="Surprise\nme"
+            android:textColor="#E5E1F0" android:textSize="13sp" />
+
+        <TextView android:id="@+id/w_movies"
+            android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:layout_marginStart="6dp"
+            android:background="@drawable/widget_btn"
+            android:gravity="center" android:text="Movies"
+            android:textColor="#E5E1F0" android:textSize="13sp" />
+    </LinearLayout>
+</LinearLayout>

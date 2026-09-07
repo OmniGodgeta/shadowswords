@@ -64,18 +64,23 @@ class RomImport {
   Future<void> _handle(List<SharedMediaFile> files) async {
     if (files.isEmpty) return;
     final path = files.first.path;
+    ReceiveSharingIntent.instance.reset();
+
+    // Deep links (shadowswords://…) and other non-file intents can land here
+    // too — ignore anything that isn't a real file on disk.
+    final file = File(path);
+    if (!await file.exists()) return;
+
     final name = path.split('/').last;
     final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
     final core = kExtCore[ext];
-    ReceiveSharingIntent.instance.reset();
-
     if (core == null) {
-      onStatus("ShadowSwords can't play a .$ext file");
+      onStatus("ShadowSwords can't play a${ext.isEmpty ? '' : ' .$ext'} file");
       return;
     }
     Uint8List bytes;
     try {
-      bytes = await File(path).readAsBytes();
+      bytes = await file.readAsBytes();
     } catch (e) {
       onStatus("Couldn't read that file");
       return;
