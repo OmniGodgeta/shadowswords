@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
-/// The site this app wraps.
-const String kSiteUrl = 'https://omnigodgeta.github.io/shadowswords-gamelib/';
+/// The site this app wraps. Points at the self-hosted copy on the user's
+/// tailnet (arcade-server), which serves the site and the ROMs from the same
+/// origin — so browsing, playing, and the movie library all work once the
+/// phone has Tailscale connected. Overridable at build time with
+/// --dart-define=SITE_URL=...
+const String kSiteUrl = String.fromEnvironment(
+  'SITE_URL',
+  defaultValue: 'https://shadow-1.tail51f9d6.ts.net/',
+);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -118,18 +125,10 @@ class _WebShellState extends State<WebShell> {
               ? _ErrorView(onRetry: _reload)
               : Stack(
                   children: [
-                    RefreshIndicator(
-                      onRefresh: _reload,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: SizedBox(
-                            height: constraints.maxHeight,
-                            child: WebViewWidget(controller: _controller),
-                          ),
-                        ),
-                      ),
-                    ),
+                    // The WebView owns all scrolling and gestures; no outer
+                    // scroll view / pull-to-refresh (it fought the page and a
+                    // stray pull reloaded back to the home URL).
+                    WebViewWidget(controller: _controller),
                     if (_loading)
                       LinearProgressIndicator(
                         value: _progress == 0 ? null : _progress / 100,
@@ -160,13 +159,14 @@ class _ErrorView extends StatelessWidget {
             const Icon(Icons.wifi_off_rounded, size: 56),
             const SizedBox(height: 16),
             Text(
-              "Couldn't load ShadowSwords",
+              "Couldn't reach ShadowSwords",
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Check your connection and try again.',
+              'Make sure Tailscale is connected and the home server is on, '
+              'then retry.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),

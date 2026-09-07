@@ -1,6 +1,6 @@
 # ShadowSwords
 
-Android app that opens the [ShadowSwords game library](https://omnigodgeta.github.io/shadowswords-gamelib/)
+Android app that opens the [ShadowSwords game library](https://shadow-1.tail51f9d6.ts.net/) (self-hosted on the tailnet)
 in a fullscreen WebView.
 
 - Immersive fullscreen (status/nav bars hidden)

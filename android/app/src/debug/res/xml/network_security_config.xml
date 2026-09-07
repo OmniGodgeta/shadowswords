@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: allow plain HTTP so a debug run can point at a local
+     dev server (SITE_URL=http://10.0.2.2:8710/). Release builds keep
+     cleartext disabled. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
