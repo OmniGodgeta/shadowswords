@@ -9,6 +9,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'rom_import.dart';
+
 /// The site this app wraps. Points at the self-hosted copy on the user's
 /// tailnet (arcade-server), which serves the site and the ROMs from the same
 /// origin. Overridable at build time with --dart-define=SITE_URL=...
@@ -18,6 +20,10 @@ const String kSiteUrl = String.fromEnvironment(
 );
 
 const String kGithubRepo = 'OmniGodgeta/shadowswords';
+
+/// Lets background helpers (ROM import) surface a snackbar.
+final GlobalKey<ScaffoldMessengerState> messengerKey =
+    GlobalKey<ScaffoldMessengerState>();
 
 /// True when semver [a] is strictly newer than [b] (compares major.minor.patch).
 bool isVersionNewer(String a, String b) {
@@ -46,6 +52,7 @@ class ShadowSwordsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ShadowSwords',
+      scaffoldMessengerKey: messengerKey,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -68,6 +75,7 @@ class WebShell extends StatefulWidget {
 
 class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   late final WebViewController _controller;
+  late final RomImport _romImport;
   final String _siteHost = Uri.parse(kSiteUrl).host;
 
   int _progress = 0;
@@ -87,6 +95,16 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     _initWebView();
     _initShortcuts();
     _checkForUpdate();
+    _romImport = RomImport(
+      runJs: (js) async {
+        if (!_firstLoadDone) return false;
+        await _controller.runJavaScript(js);
+        return true;
+      },
+      onStatus: (m) => messengerKey.currentState
+        ?..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(m))),
+    )..start();
   }
 
   void _initWebView() {
@@ -102,6 +120,18 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         'SSExternal',
         onMessageReceived: (msg) => _openExternal(msg.message),
       )
+      ..addJavaScriptChannel(
+        'SSRom',
+        onMessageReceived: (msg) {
+          if (msg.message.startsWith('error:')) {
+            messengerKey.currentState
+              ?..clearSnackBars()
+              ..showSnackBar(
+                const SnackBar(content: Text("Couldn't load that ROM")),
+              );
+          }
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) => setState(() => _progress = p),
@@ -116,6 +146,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
               _firstLoadDone = true;
               _applyPendingHash();
             }
+            _romImport.onPageReady();
           },
           onUrlChange: (change) => _onUrlChange(change.url ?? ''),
           onNavigationRequest: (req) {
@@ -273,6 +304,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     WakelockPlus.disable();
+    _romImport.dispose();
     super.dispose();
   }
 

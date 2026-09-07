@@ -10,6 +10,7 @@ in a fullscreen WebView.
 - Long-press the icon for shortcuts: Play · Surprise me · Movies · Search
 - Tells you when a new APK is on GitHub
 - Loading bar, offline "Retry" screen
+- **Open a ROM file** from your file manager or a share sheet ("Play in ShadowSwords")
 - Back navigates web history, then double-press to exit
 
 ## Install
