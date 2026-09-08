@@ -107,6 +107,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _siteHost = Uri.parse(settings.siteUrl).host;
+    _native.setMethodCallHandler(_onNativeCall);
     _initWebView();
     _initShortcuts();
     _initDeepLinks();
@@ -158,8 +159,8 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         },
       )
       ..addJavaScriptChannel(
-        'SSMedia',
-        onMessageReceived: (msg) => _onMusicState(msg.message == 'playing'),
+        'SSMediaChannel',
+        onMessageReceived: (msg) => _onMusicState(msg.message),
       )
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -171,7 +172,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
           onPageFinished: (_) {
             setState(() => _loading = false);
             _patchExternalLinks();
-            _injectMediaWatch();
+            _injectMediaBridge();
             if (settings.hapticControls) _injectHaptics();
             if (!_firstLoadDone) {
               _firstLoadDone = true;
@@ -233,34 +234,59 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     }
   }
 
-  // --- keep the web music player alive in the background ------------------
+  // --- web music player <-> native MediaSession bridge -------------------
 
-  bool _musicPlaying = false;
+  bool _musicActive = false;
 
-  void _injectMediaWatch() {
+  /// Give the site a sink for its push-model music-state updates.
+  void _injectMediaBridge() {
     _controller.runJavaScript('''
       (function () {
-        if (window.__ssMedia) return;
-        window.__ssMedia = true;
-        function report() {
-          var on = Array.prototype.some.call(
-            document.querySelectorAll('audio'),
-            function (m) { return !m.paused && !m.ended; });
-          try { SSMedia.postMessage(on ? 'playing' : 'stopped'); } catch (e) {}
-        }
-        document.addEventListener('play', report, true);
-        document.addEventListener('pause', function () { setTimeout(report, 200); }, true);
-        document.addEventListener('ended', function () { setTimeout(report, 200); }, true);
+        if (window.SSMediaBridge) return;
+        window.SSMediaBridge = { update: function (s) {
+          try { SSMediaChannel.postMessage(typeof s === 'string' ? s : JSON.stringify(s)); }
+          catch (e) {}
+        }};
+        // If SSMusic is already up, push an initial state.
+        try {
+          if (window.SSMusic) window.SSMediaBridge.update(window.SSMusic.getState());
+        } catch (e) {}
       })();
     ''');
   }
 
-  Future<void> _onMusicState(bool playing) async {
-    if (playing == _musicPlaying) return;
-    _musicPlaying = playing;
+  Future<void> _onMusicState(String json) async {
+    bool active = false;
     try {
-      await _native.invokeMethod(playing ? 'startMusic' : 'stopMusic');
+      active = (jsonDecode(json) as Map)['active'] == true;
     } catch (_) {}
+    try {
+      if (active) {
+        await _native.invokeMethod('updateMusic', json);
+        _musicActive = true;
+      } else if (_musicActive) {
+        await _native.invokeMethod('stopMusic');
+        _musicActive = false;
+      }
+    } catch (_) {}
+  }
+
+  Future<dynamic> _onNativeCall(MethodCall call) async {
+    if (call.method != 'transport') return null;
+    final e = call.arguments as String? ?? '';
+    final js = switch (e) {
+      'play' => 'SSMusic.play()',
+      'pause' => 'SSMusic.pause()',
+      'next' => 'SSMusic.next()',
+      'prev' => 'SSMusic.prev()',
+      'stop' => 'SSMusic.stop()',
+      _ when e.startsWith('seek:') => 'SSMusic.seek(${int.tryParse(e.substring(5)) ?? 0})',
+      _ => null,
+    };
+    if (js != null) {
+      await _controller.runJavaScript('window.SSMusic && $js;');
+    }
+    return null;
   }
 
   // --- haptics on the emulator's touch controls ----------------------------
@@ -475,7 +501,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     _connSub?.cancel();
     WakelockPlus.disable();
     _romImport.dispose();
-    if (_musicPlaying) _native.invokeMethod('stopMusic').catchError((_) {});
+    if (_musicActive) _native.invokeMethod('stopMusic').catchError((_) {});
     super.dispose();
   }
 

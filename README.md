@@ -6,7 +6,7 @@ in a fullscreen WebView.
 - Immersive fullscreen (status/nav bars hidden)
 - Branded splash screen
 - Keeps the screen awake during games; unlocks rotation for games (portrait for browsing)
-- Music keeps playing in the background (foreground service + lock-screen controls from the site)
+- Music keeps playing in the background, with real lock-screen / Bluetooth / car controls (title, artist, album, art, prev/play/next/seek)
 - External links (Movies/Jellyfin, Discord, YouTube) open in your browser
 - **Settings**: library URL, Wake-on-LAN, keep-screen-on, haptics, clear cache, update check
 - **Wake-on-LAN** — wakes the home server on launch / Retry (home Wi-Fi only)

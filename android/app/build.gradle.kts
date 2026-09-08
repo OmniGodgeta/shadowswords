@@ -69,6 +69,11 @@ kotlin {
     }
 }
 
+dependencies {
+    // MediaSession for lock-screen / Bluetooth / car controls of the web music player.
+    implementation("androidx.media:media:1.7.0")
+}
+
 flutter {
     source = "../.."
 }

@@ -19,25 +19,48 @@ import java.util.Locale
 
 class MainActivity : FlutterActivity() {
 
+    private var channel: MethodChannel? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "shadowswords/native")
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "screenshot" -> takeScreenshot(result)
-                    "startMusic" -> {
-                        val i = Intent(this, MusicService::class.java)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                            startForegroundService(i) else startService(i)
-                        result.success(true)
+        val ch = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger, "shadowswords/native"
+        )
+        channel = ch
+        ch.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "screenshot" -> takeScreenshot(result)
+                "updateMusic" -> {
+                    val i = Intent(this, MusicService::class.java).apply {
+                        action = MusicService.ACTION_UPDATE
+                        putExtra(MusicService.EXTRA_STATE, call.arguments as? String)
                     }
-                    "stopMusic" -> {
-                        stopService(Intent(this, MusicService::class.java))
-                        result.success(true)
-                    }
-                    else -> result.notImplemented()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                        startForegroundService(i) else startService(i)
+                    result.success(true)
                 }
+                "stopMusic" -> {
+                    startService(
+                        Intent(this, MusicService::class.java)
+                            .setAction(MusicService.ACTION_STOP)
+                    )
+                    result.success(true)
+                }
+                else -> result.notImplemented()
             }
+        }
+        // Forward MediaSession transport events from the service to Dart.
+        MusicService.transportSink = { event ->
+            Handler(Looper.getMainLooper()).post {
+                channel?.invokeMethod("transport", event)
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        MusicService.transportSink = null
+        channel = null
+        super.onDestroy()
     }
 
     private fun takeScreenshot(result: MethodChannel.Result) {
@@ -47,11 +70,8 @@ class MainActivity : FlutterActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             PixelCopy.request(window, bitmap, { copyResult ->
-                if (copyResult == PixelCopy.SUCCESS) {
-                    result.success(save(bitmap))
-                } else {
-                    result.success(null)
-                }
+                if (copyResult == PixelCopy.SUCCESS) result.success(save(bitmap))
+                else result.success(null)
             }, Handler(Looper.getMainLooper()))
         } else {
             @Suppress("DEPRECATION")
