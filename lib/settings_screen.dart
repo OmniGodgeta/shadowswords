@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'report_screen.dart';
 import 'settings.dart';
 import 'wol.dart';
 
@@ -190,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ListTile(
             title: const Text('Clear web cache'),
-            subtitle: const Text('Fixes a stuck or stale page'),
+            subtitle: const Text("Fixes a stuck or stale page (keeps you signed in)"),
             trailing: const Icon(Icons.delete_sweep_rounded),
             onTap: () async {
               final messenger = ScaffoldMessenger.of(context);
@@ -201,6 +202,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               );
               nav.pop(true); // signal a reload
             },
+          ),
+          ListTile(
+            title: const Text('Report a problem'),
+            subtitle: const Text('View recent activity / open an issue'),
+            trailing: const Icon(Icons.bug_report_outlined),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReportScreen()),
+            ),
           ),
           const SizedBox(height: 12),
           Center(

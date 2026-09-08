@@ -13,6 +13,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'diagnostics.dart';
+import 'log.dart';
 import 'rom_import.dart';
 import 'settings.dart';
 import 'settings_screen.dart';
@@ -47,12 +49,19 @@ bool isVersionNewer(String a, String b) {
 
 late final AppSettings settings;
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  settings = await AppSettings.load();
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const ShadowSwordsApp());
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    FlutterError.onError = (details) {
+      logEvent('flutter error: ${details.exceptionAsString()}');
+      FlutterError.presentError(details);
+    };
+    settings = await AppSettings.load();
+    logEvent('app start');
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    runApp(const ShadowSwordsApp());
+  }, (error, stack) => logEvent('uncaught: $error'));
 }
 
 class ShadowSwordsApp extends StatelessWidget {
@@ -95,12 +104,14 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   int _progress = 0;
   bool _loading = true;
   bool _hasError = false;
+  ReachFailure? _reachFailure;
   bool _playing = false;
   DateTime? _lastBackPress;
   String? _updateVersion;
   bool _updateDismissed = false;
   String? _pendingHash; // from a shortcut / deep link, applied once ready
   bool _firstLoadDone = false;
+  bool _showIntro = !settings.seenIntro;
 
   @override
   void initState() {
@@ -130,7 +141,9 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
 
   Future<void> _wake() async {
     if (settings.wolMac.trim().isEmpty) return;
-    await sendMagicPacket(settings.wolMac, broadcast: settings.wolBroadcast);
+    final err = await sendMagicPacket(settings.wolMac,
+        broadcast: settings.wolBroadcast);
+    logEvent('wake-on-lan: ${err ?? 'sent'}');
   }
 
   void _initWebView() {
@@ -170,7 +183,10 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             _hasError = false;
           }),
           onPageFinished: (_) {
-            setState(() => _loading = false);
+            setState(() {
+              _loading = false;
+              _reachFailure = null;
+            });
             _patchExternalLinks();
             _injectMediaBridge();
             if (settings.hapticControls) _injectHaptics();
@@ -191,10 +207,12 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
           },
           onWebResourceError: (error) {
             if (error.isForMainFrame ?? true) {
+              logEvent('load failed: ${error.errorCode} ${error.description}');
               setState(() {
                 _hasError = true;
                 _loading = false;
               });
+              _runDiagnosis();
             }
           },
         ),
@@ -256,10 +274,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   }
 
   Future<void> _onMusicState(String json) async {
-    bool active = false;
+    Map<String, dynamic> st = const {};
     try {
-      active = (jsonDecode(json) as Map)['active'] == true;
+      st = (jsonDecode(json) as Map).cast<String, dynamic>();
     } catch (_) {}
+    final active = st['active'] == true;
     try {
       if (active) {
         await _native.invokeMethod('updateMusic', json);
@@ -268,6 +287,25 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         await _native.invokeMethod('stopMusic');
         _musicActive = false;
       }
+    } catch (_) {}
+    _pushMusicWidget(active, st);
+  }
+
+  String _lastWidgetTrack = '';
+
+  Future<void> _pushMusicWidget(bool active, Map<String, dynamic> st) async {
+    final title = active ? (st['title'] as String? ?? '') : '';
+    final artist = active ? (st['artist'] as String? ?? '') : '';
+    final playing = active && st['playing'] == true;
+    final sig = '$title|$artist|$playing';
+    if (sig == _lastWidgetTrack) return;
+    _lastWidgetTrack = sig;
+    try {
+      await HomeWidget.saveWidgetData<String>('music_title', title);
+      await HomeWidget.saveWidgetData<String>('music_artist', artist);
+      await HomeWidget.saveWidgetData<bool>('music_playing', playing);
+      await HomeWidget.saveWidgetData<bool>('music_active', active);
+      await HomeWidget.updateWidget(androidName: 'ShadowSwordsWidgetProvider');
     } catch (_) {}
   }
 
@@ -405,6 +443,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   }
 
   void _navigateHash(String hash) {
+    logEvent('navigate $hash');
     _controller.runJavaScript("location.hash = ${jsonEncode(hash)};");
   }
 
@@ -413,11 +452,18 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   void _initConnectivity() {
     _connSub = Connectivity().onConnectivityChanged.listen((results) {
       final online = results.any((r) => r != ConnectivityResult.none);
+      logEvent('connectivity: ${online ? 'online' : 'offline'}');
       if (online && _hasError) {
         if (settings.wolEnabled) _wake();
         _reload();
       }
     });
+  }
+
+  Future<void> _runDiagnosis() async {
+    final f = await diagnoseReach(settings.siteUrl);
+    logEvent('diagnosis: ${f.name}');
+    if (mounted) setState(() => _reachFailure = f);
   }
 
   // --- update check -----------------------------------------------------
@@ -551,32 +597,39 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
                   onDismiss: () => setState(() => _updateDismissed = true),
                 ),
               Expanded(
-                child: _hasError
-                    ? _ErrorView(
-                        onRetry: () async {
-                          if (settings.wolEnabled) await _wake();
-                          await _reload();
-                        },
-                        onSettings: _openSettings,
-                        onOpenTailscale: () =>
-                            _openExternal('com.tailscale.ipn://'),
-                      )
-                    : Listener(
-                        onPointerDown: _onPointerDown,
-                        onPointerUp: _onPointerUp,
-                        behavior: HitTestBehavior.translucent,
-                        child: Stack(
-                          children: [
-                            WebViewWidget(controller: _controller),
-                            if (_loading)
-                              LinearProgressIndicator(
-                                value: _progress == 0 ? null : _progress / 100,
-                                minHeight: 2,
-                                backgroundColor: Colors.transparent,
-                              ),
-                          ],
-                        ),
-                      ),
+                child: _showIntro
+                    ? _IntroCard(onDone: () {
+                        settings.seenIntro = true;
+                        setState(() => _showIntro = false);
+                      })
+                    : _hasError
+                        ? _ErrorView(
+                            failure: _reachFailure,
+                            onRetry: () async {
+                              if (settings.wolEnabled) await _wake();
+                              await _reload();
+                            },
+                            onSettings: _openSettings,
+                            onOpenTailscale: () =>
+                                _openExternal('com.tailscale.ipn://'),
+                          )
+                        : Listener(
+                            onPointerDown: _onPointerDown,
+                            onPointerUp: _onPointerUp,
+                            behavior: HitTestBehavior.translucent,
+                            child: Stack(
+                              children: [
+                                WebViewWidget(controller: _controller),
+                                if (_loading)
+                                  LinearProgressIndicator(
+                                    value:
+                                        _progress == 0 ? null : _progress / 100,
+                                    minHeight: 2,
+                                    backgroundColor: Colors.transparent,
+                                  ),
+                              ],
+                            ),
+                          ),
               ),
             ],
           ),
@@ -667,34 +720,46 @@ class _UpdateBanner extends StatelessWidget {
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({
+    required this.failure,
     required this.onRetry,
     required this.onSettings,
     required this.onOpenTailscale,
   });
 
+  final ReachFailure? failure;
   final Future<void> Function() onRetry;
   final VoidCallback onSettings;
   final VoidCallback onOpenTailscale;
 
   @override
   Widget build(BuildContext context) {
+    final title = failure?.title ?? "Couldn't reach ShadowSwords";
+    final detail = failure?.detail ??
+        'Connect Tailscale and make sure the home server is on. '
+            "It'll retry on its own when you're back online.";
+    final showTailscale =
+        failure == null || failure == ReachFailure.serverUnreachable;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 56),
+            Icon(
+              failure == ReachFailure.serverUnreachable
+                  ? Icons.dns_rounded
+                  : Icons.wifi_off_rounded,
+              size: 56,
+            ),
             const SizedBox(height: 16),
             Text(
-              "Couldn't reach ShadowSwords",
+              title,
               style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Connect Tailscale and make sure the home server is on. '
-              "It'll retry on its own when you're back online.",
+              detail,
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -709,17 +774,74 @@ class _ErrorView extends StatelessWidget {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Retry'),
                 ),
-                OutlinedButton.icon(
-                  onPressed: onOpenTailscale,
-                  icon: const Icon(Icons.vpn_key_rounded),
-                  label: const Text('Tailscale'),
-                ),
+                if (showTailscale)
+                  OutlinedButton.icon(
+                    onPressed: onOpenTailscale,
+                    icon: const Icon(Icons.vpn_key_rounded),
+                    label: const Text('Tailscale'),
+                  ),
                 OutlinedButton.icon(
                   onPressed: onSettings,
                   icon: const Icon(Icons.settings_rounded),
                   label: const Text('Settings'),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IntroCard extends StatelessWidget {
+  const _IntroCard({required this.onDone});
+
+  final VoidCallback onDone;
+
+  Widget _row(BuildContext c, IconData icon, String text) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: Theme.of(c).colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(child: Text(text, style: Theme.of(c).textTheme.bodyMedium)),
+          ],
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sports_esports_rounded, size: 48),
+            const SizedBox(height: 14),
+            Text('Welcome to ShadowSwords',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              'Your self-hosted game & movie library, in one app.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            _row(context, Icons.vpn_key_rounded,
+                'Connect Tailscale on this phone — the library lives on your home server.'),
+            _row(context, Icons.power_settings_new_rounded,
+                'Keep the home PC awake, or set up Wake-on-LAN in Settings so the app wakes it for you.'),
+            _row(context, Icons.touch_app_rounded,
+                'Two-finger long-press opens Settings anywhere. Three-finger tap takes a screenshot.'),
+            _row(context, Icons.person_rounded,
+                'Sign in (menu → Profile) to sync saves and favourites across devices.'),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: onDone,
+              child: const Text('Get started'),
             ),
           ],
         ),

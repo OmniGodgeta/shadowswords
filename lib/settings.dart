@@ -6,6 +6,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 const String kTailnetUrl = 'https://shadow-1.tail51f9d6.ts.net/';
 const String kPublicUrl = 'https://omnigodgeta.github.io/shadowswords-gamelib/';
 
+/// Build-time override (`--dart-define=SITE_URL=...`), else the tailnet.
+const String _defaultSiteUrl =
+    String.fromEnvironment('SITE_URL', defaultValue: kTailnetUrl);
+
 class AppSettings extends ChangeNotifier {
   AppSettings._(this._prefs);
 
@@ -14,7 +18,7 @@ class AppSettings extends ChangeNotifier {
   static Future<AppSettings> load() async =>
       AppSettings._(await SharedPreferences.getInstance());
 
-  String get siteUrl => _prefs.getString('siteUrl') ?? kTailnetUrl;
+  String get siteUrl => _prefs.getString('siteUrl') ?? _defaultSiteUrl;
   set siteUrl(String v) => _set('siteUrl', v.trim());
 
   bool get keepScreenOnAlways => _prefs.getBool('keepScreenOnAlways') ?? false;
@@ -38,6 +42,9 @@ class AppSettings extends ChangeNotifier {
       _prefs.getString('wolBroadcast') ?? '255.255.255.255';
   set wolBroadcast(String v) =>
       _set('wolBroadcast', v.trim().isEmpty ? '255.255.255.255' : v.trim());
+
+  bool get seenIntro => _prefs.getBool('seenIntro') ?? false;
+  set seenIntro(bool v) => _set('seenIntro', v);
 
   void _set(String key, Object value) {
     switch (value) {
