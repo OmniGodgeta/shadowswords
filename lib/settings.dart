@@ -46,6 +46,11 @@ class AppSettings extends ChangeNotifier {
   bool get seenIntro => _prefs.getBool('seenIntro') ?? false;
   set seenIntro(bool v) => _set('seenIntro', v);
 
+  /// Route EmulatorJS's files through the app's on-disk cache so games play
+  /// offline once fetched.
+  bool get offlineEmulator => _prefs.getBool('offlineEmulator') ?? false;
+  set offlineEmulator(bool v) => _set('offlineEmulator', v);
+
   void _set(String key, Object value) {
     switch (value) {
       case String v:

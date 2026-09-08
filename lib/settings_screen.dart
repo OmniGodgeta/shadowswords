@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'ejs_cache.dart';
 import 'report_screen.dart';
 import 'settings.dart';
 import 'wol.dart';
@@ -10,11 +11,13 @@ class SettingsScreen extends StatefulWidget {
   const SettingsScreen({
     super.key,
     required this.settings,
+    required this.ejs,
     required this.onClearCache,
     required this.onCheckUpdate,
   });
 
   final AppSettings settings;
+  final EjsCache ejs;
   final Future<void> Function() onClearCache;
   final Future<String?> Function() onCheckUpdate; // returns newer version or null
 
@@ -27,6 +30,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _macCtl;
   late final TextEditingController _bcastCtl;
   String _version = '';
+  int _ejsBytes = 0;
+  String? _prewarm; // progress text while downloading
 
   AppSettings get s => widget.settings;
 
@@ -39,6 +44,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     PackageInfo.fromPlatform().then((p) {
       if (mounted) setState(() => _version = '${p.version} (${p.buildNumber})');
     });
+    _refreshEjsSize();
+  }
+
+  Future<void> _refreshEjsSize() async {
+    final b = await widget.ejs.cacheBytes();
+    if (mounted) setState(() => _ejsBytes = b);
+  }
+
+  String _mb(int bytes) => '${(bytes / 1048576).toStringAsFixed(1)} MB';
+
+  // EmulatorJS default core binaries. Anything missed here just downloads on
+  // first play like before.
+  static const _cores = [
+    'fceumm', 'snes9x', 'gambatte', 'mgba', 'mupen64plus_next', 'melonds',
+    'genesis_plus_gx', 'picodrive', 'mednafen_pce', 'mednafen_pcfx',
+    'mednafen_vb', 'mednafen_wswan', 'mednafen_ngp', 'mednafen_lynx',
+    'stella2014', 'a5200', 'prosystem', 'handy', 'virtualjaguar',
+    'mednafen_psx_hw', 'fbneo', 'fbalpha2012_cps1', 'fbalpha2012_cps2',
+    'mame2003_plus', 'vice_x64', 'puae', 'opera', 'yabause',
+  ];
+
+  Future<void> _downloadAllCores() async {
+    setState(() => _prewarm = 'Starting…');
+    await widget.ejs.prewarm(
+      _cores,
+      onProgress: (done, total) {
+        if (mounted) setState(() => _prewarm = 'Downloading $done / $total…');
+      },
+    );
+    await _refreshEjsSize();
+    if (mounted) setState(() => _prewarm = null);
   }
 
   @override
@@ -168,6 +204,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
               label: const Text('Send a test wake packet'),
             ),
           ),
+
+          _section('Offline'),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Keep the emulator files on this device so games you have already '
+              'downloaded (Save for offline, on the site) still play with no '
+              'connection.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Emulator available offline'),
+            subtitle: Text(_ejsBytes > 0
+                ? 'Cached: ${_mb(_ejsBytes)}'
+                : 'Files download the first time you play each system'),
+            value: s.offlineEmulator,
+            onChanged: (v) async {
+              setState(() => s.offlineEmulator = v);
+              if (v) {
+                await widget.ejs.start();
+              } else {
+                await widget.ejs.clear();
+                await _refreshEjsSize();
+              }
+            },
+          ),
+          if (s.offlineEmulator) ...[
+            ListTile(
+              title: const Text('Download all cores now'),
+              subtitle: Text(_prewarm ?? 'Fetch every emulator up front (~100 MB)'),
+              trailing: _prewarm != null
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.download_rounded),
+              onTap: _prewarm != null ? null : _downloadAllCores,
+            ),
+            ListTile(
+              title: const Text('Clear emulator cache'),
+              subtitle: Text(_mb(_ejsBytes)),
+              trailing: const Icon(Icons.delete_outline_rounded),
+              onTap: () async {
+                await widget.ejs.clear();
+                await _refreshEjsSize();
+              },
+            ),
+          ],
 
           _section('Maintenance'),
           ListTile(

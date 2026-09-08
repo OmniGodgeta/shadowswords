@@ -14,6 +14,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import 'diagnostics.dart';
+import 'ejs_cache.dart';
 import 'log.dart';
 import 'rom_import.dart';
 import 'settings.dart';
@@ -96,6 +97,7 @@ class WebShell extends StatefulWidget {
 class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   late final WebViewController _controller;
   late final RomImport _romImport;
+  final EjsCache _ejs = EjsCache(upstreamBase: settings.siteUrl);
   final _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
   StreamSubscription<List<ConnectivityResult>>? _connSub;
@@ -137,6 +139,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     )..start();
     if (settings.keepScreenOnAlways) WakelockPlus.enable();
     if (settings.wolEnabled) _wake();
+    if (settings.offlineEmulator) _ejs.start();
   }
 
   Future<void> _wake() async {
@@ -189,6 +192,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             });
             _patchExternalLinks();
             _injectMediaBridge();
+            _injectEjsBase();
             if (settings.hapticControls) _injectHaptics();
             if (!_firstLoadDone) {
               _firstLoadDone = true;
@@ -325,6 +329,14 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       await _controller.runJavaScript('window.SSMusic && $js;');
     }
     return null;
+  }
+
+  // --- offline emulator: point the site at the app's local EJS cache -----
+
+  void _injectEjsBase() {
+    final base = settings.offlineEmulator ? _ejs.baseUrl : null;
+    if (base == null) return;
+    _controller.runJavaScript('window.__ssEjsBase = ${jsonEncode(base)};');
   }
 
   // --- haptics on the emulator's touch controls ----------------------------
@@ -498,6 +510,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => SettingsScreen(
           settings: settings,
+          ejs: _ejs,
           onCheckUpdate: _fetchLatestNewer,
           onClearCache: () async {
             await _controller.clearCache();
@@ -509,6 +522,10 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     );
     if (!mounted) return;
     setState(() => _siteHost = Uri.parse(settings.siteUrl).host);
+    _ejs.upstreamBase = settings.siteUrl;
+    if (settings.offlineEmulator) {
+      await _ejs.start();
+    }
     if (settings.keepScreenOnAlways) {
       WakelockPlus.enable();
     } else if (!_playing) {
@@ -547,6 +564,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     _connSub?.cancel();
     WakelockPlus.disable();
     _romImport.dispose();
+    _ejs.dispose();
     if (_musicActive) _native.invokeMethod('stopMusic').catchError((_) {});
     super.dispose();
   }
