@@ -54,21 +54,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _mb(int bytes) => '${(bytes / 1048576).toStringAsFixed(1)} MB';
 
-  // EmulatorJS default core binaries. Anything missed here just downloads on
-  // first play like before.
-  static const _cores = [
-    'fceumm', 'snes9x', 'gambatte', 'mgba', 'mupen64plus_next', 'melonds',
-    'genesis_plus_gx', 'picodrive', 'mednafen_pce', 'mednafen_pcfx',
-    'mednafen_vb', 'mednafen_wswan', 'mednafen_ngp', 'mednafen_lynx',
-    'stella2014', 'a5200', 'prosystem', 'handy', 'virtualjaguar',
-    'mednafen_psx_hw', 'fbneo', 'fbalpha2012_cps1', 'fbalpha2012_cps2',
-    'mame2003_plus', 'vice_x64', 'puae', 'opera', 'yabause',
+  // Fallback if the site hasn't handed us `sswCores()` yet (never been online).
+  static const _fallbackCores = [
+    'a5200', 'beetle_vb', 'fbneo', 'fceumm', 'gambatte', 'gearcoleco',
+    'genesis_plus_gx', 'handy', 'mame2003_plus', 'mednafen_ngp', 'mednafen_pce',
+    'mednafen_pcfx', 'mednafen_wswan', 'melonds', 'mgba', 'mupen64plus_next',
+    'opera', 'pcsx_rearmed', 'picodrive', 'prosystem', 'puae', 'snes9x',
+    'stella2014', 'vice_x64sc', 'vice_xplus4', 'vice_xvic', 'virtualjaguar',
   ];
 
   Future<void> _downloadAllCores() async {
+    final cores =
+        s.knownCores.isNotEmpty ? s.knownCores : _fallbackCores;
     setState(() => _prewarm = 'Starting…');
     await widget.ejs.prewarm(
-      _cores,
+      cores,
       onProgress: (done, total) {
         if (mounted) setState(() => _prewarm = 'Downloading $done / $total…');
       },

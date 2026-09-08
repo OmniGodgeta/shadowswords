@@ -143,23 +143,27 @@ class EjsCache {
     logEvent('ejs cache cleared');
   }
 
-  /// Pre-fetch the shell + a set of core `.data` files so they're available
-  /// offline without playing each system first. [cores] are EmulatorJS core
-  /// ids (e.g. "fceumm", "snes9x").
+  /// Pre-fetch the shell + every playable core so games work offline without
+  /// playing each system first. [cores] are libretro core names from the
+  /// site's `window.sswCores()`.
   Future<void> prewarm(
     List<String> cores, {
     void Function(int done, int total)? onProgress,
   }) async {
-    final shell = [
+    final wanted = <String>[
       'loader.js',
       'emulator.min.js',
       'emulator.min.css',
       'compression/extract.js',
+      'compression/extract7z.js',
       'localization/en-US.json',
-    ];
-    final wanted = [
-      ...shell,
-      for (final c in cores) 'cores/$c-wasm.data',
+      for (final c in cores) ...[
+        // EJS picks -legacy on non-crossOriginIsolated origins (our case) and
+        // -wasm when SharedArrayBuffer is available. Grab both + the report.
+        'cores/$c-legacy-wasm.data',
+        'cores/$c-wasm.data',
+        'cores/reports/$c.json',
+      ],
     ];
     var done = 0;
     for (final rel in wanted) {
@@ -172,12 +176,12 @@ class EjsCache {
           final r = await _http
               .getUrl(u)
               .then((x) => x.close())
-              .timeout(const Duration(seconds: 45));
+              .timeout(const Duration(seconds: 60));
           if (r.statusCode == 200) {
             await file.parent.create(recursive: true);
             await r.pipe(file.openWrite());
           }
-        } catch (_) {/* skip, will fetch on demand later */}
+        } catch (_) {/* skip — some variants 404 by design; on-demand covers it */}
       }
       onProgress?.call(++done, wanted.length);
     }

@@ -178,6 +178,15 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         'SSMediaChannel',
         onMessageReceived: (msg) => _onMusicState(msg.message),
       )
+      ..addJavaScriptChannel(
+        'SSCores',
+        onMessageReceived: (msg) {
+          try {
+            final list = (jsonDecode(msg.message) as List).cast<String>();
+            if (list.isNotEmpty) settings.knownCores = list;
+          } catch (_) {}
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) => setState(() => _progress = p),
@@ -193,6 +202,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             _patchExternalLinks();
             _injectMediaBridge();
             _injectEjsBase();
+            if (settings.offlineEmulator) _fetchCoreList();
             if (settings.hapticControls) _injectHaptics();
             if (!_firstLoadDone) {
               _firstLoadDone = true;
@@ -337,6 +347,13 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     final base = settings.offlineEmulator ? _ejs.baseUrl : null;
     if (base == null) return;
     _controller.runJavaScript('window.__ssEjsBase = ${jsonEncode(base)};');
+  }
+
+  void _fetchCoreList() {
+    _controller.runJavaScript(
+      'window.sswCores && Promise.resolve(sswCores()).then('
+      'function (c) { try { SSCores.postMessage(JSON.stringify(c)); } catch (e) {} });',
+    );
   }
 
   // --- haptics on the emulator's touch controls ----------------------------

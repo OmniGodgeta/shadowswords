@@ -51,6 +51,14 @@ class AppSettings extends ChangeNotifier {
   bool get offlineEmulator => _prefs.getBool('offlineEmulator') ?? false;
   set offlineEmulator(bool v) => _set('offlineEmulator', v);
 
+  /// libretro core names from the site's `sswCores()`, cached so the offline
+  /// "download all" works even when the site can't be reached.
+  List<String> get knownCores => _prefs.getStringList('knownCores') ?? const [];
+  set knownCores(List<String> v) {
+    _prefs.setStringList('knownCores', v);
+    notifyListeners();
+  }
+
   void _set(String key, Object value) {
     switch (value) {
       case String v:
