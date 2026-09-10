@@ -81,7 +81,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun save(bitmap: Bitmap): String? {
-        val name = "ShadowSwords_" +
+        val name = "RetroVerse_" +
             SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date()) + ".png"
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, name)
@@ -89,7 +89,7 @@ class MainActivity : FlutterActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(
                     MediaStore.Images.Media.RELATIVE_PATH,
-                    Environment.DIRECTORY_PICTURES + "/ShadowSwords"
+                    Environment.DIRECTORY_PICTURES + "/RetroVerse"
                 )
             }
         }

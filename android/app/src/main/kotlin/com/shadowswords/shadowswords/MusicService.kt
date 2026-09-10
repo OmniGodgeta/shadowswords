@@ -49,7 +49,7 @@ class MusicService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        session = MediaSessionCompat(this, "ShadowSwords").apply {
+        session = MediaSessionCompat(this, "RetroVerse").apply {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() = transportSink?.invoke("play") ?: Unit
                 override fun onPause() = transportSink?.invoke("pause") ?: Unit
@@ -84,7 +84,7 @@ class MusicService : Service() {
             stopSelf()
             return
         }
-        val title = s.optString("title").ifBlank { "ShadowSwords" }
+        val title = s.optString("title").ifBlank { "RetroVerse" }
         val artist = s.optString("artist")
         val album = s.optString("album")
         val playing = s.optBoolean("playing", false)
@@ -167,7 +167,7 @@ class MusicService : Service() {
         )
         val notif: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(md?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: "ShadowSwords")
+            .setContentTitle(md?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: "RetroVerse")
             .setContentText(md?.getString(MediaMetadataCompat.METADATA_KEY_ARTIST))
             .setLargeIcon(art)
             .setContentIntent(openApp)

@@ -71,7 +71,7 @@ class ShadowSwordsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ShadowSwords',
+      title: 'RetroVerse',
       scaffoldMessengerKey: messengerKey,
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
@@ -557,7 +557,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       messengerKey.currentState
         ?..clearSnackBars()
         ..showSnackBar(SnackBar(
-          content: Text(path != null ? 'Saved to Pictures/ShadowSwords' : 'Screenshot failed'),
+          content: Text(path != null ? 'Saved to Pictures/RetroVerse' : 'Screenshot failed'),
         ));
     } catch (_) {
       messengerKey.currentState?.showSnackBar(
@@ -736,7 +736,7 @@ class _UpdateBanner extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'ShadowSwords $version is available — tap to download',
+                  'RetroVerse $version is available — tap to download',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -768,7 +768,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = failure?.title ?? "Couldn't reach ShadowSwords";
+    final title = failure?.title ?? "Couldn't reach RetroVerse";
     final detail = failure?.detail ??
         'Connect Tailscale and make sure the home server is on. '
             "It'll retry on its own when you're back online.";
@@ -856,7 +856,7 @@ class _IntroCard extends StatelessWidget {
           children: [
             const Icon(Icons.sports_esports_rounded, size: 48),
             const SizedBox(height: 14),
-            Text('Welcome to ShadowSwords',
+            Text('Welcome to RetroVerse',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 6),
             Text(

@@ -24,7 +24,7 @@ const Map<String, String> kExtCore = {
   'zip': 'arcade',
 };
 
-/// Handles "Open ROM with ShadowSwords" — a shared/opened file is served from a
+/// Handles "Open ROM with RetroVerse" — a shared/opened file is served from a
 /// throwaway localhost HTTP server and handed to the web player, which pulls it
 /// into a Blob, stashes it in IndexedDB (`ssw-arcade` store `rom`, key `upload`)
 /// and navigates to `#/play/upload/<name>`.
@@ -75,7 +75,7 @@ class RomImport {
     final ext = name.contains('.') ? name.split('.').last.toLowerCase() : '';
     final core = kExtCore[ext];
     if (core == null) {
-      onStatus("ShadowSwords can't play a${ext.isEmpty ? '' : ' .$ext'} file");
+      onStatus("RetroVerse can't play a${ext.isEmpty ? '' : ' .$ext'} file");
       return;
     }
     Uint8List bytes;

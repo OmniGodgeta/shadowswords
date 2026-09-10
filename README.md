@@ -1,6 +1,8 @@
-# ShadowSwords
+# RetroVerse
 
-Android app that opens the [ShadowSwords game library](https://shadow-1.tail51f9d6.ts.net/) (self-hosted on the tailnet)
+*(repo & package id stay `shadowswords`; the app is branded **RetroVerse**.)*
+
+Android app that opens the [RetroVerse game library](https://shadow-1.tail51f9d6.ts.net/) (self-hosted on the tailnet)
 in a fullscreen WebView.
 
 - Immersive fullscreen (status/nav bars hidden)
@@ -18,13 +20,13 @@ in a fullscreen WebView.
 - Update notice when a new APK is on GitHub
 - Bluetooth controllers work (menu + in-game)
 
-**Gestures:** two-finger long-press = Settings · three-finger tap = screenshot to Pictures/ShadowSwords
+**Gestures:** two-finger long-press = Settings · three-finger tap = screenshot to Pictures/RetroVerse
 
 
 
 ## Install
 
-Grab the latest `ShadowSwords-*.apk` from [Releases](../../releases) and sideload it
+Grab the latest `RetroVerse-*.apk` from [Releases](../../releases) and sideload it
 (enable "Install unknown apps" for your browser / file manager).
 
 ## Build from source

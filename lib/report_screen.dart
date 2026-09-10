@@ -21,7 +21,7 @@ class _ReportScreenState extends State<ReportScreen> {
     PackageInfo.fromPlatform().then((p) {
       if (mounted) {
         setState(() => _header =
-            'ShadowSwords ${p.version} (${p.buildNumber}) · Android');
+            'RetroVerse ${p.version} (${p.buildNumber}) · Android');
       }
     });
   }

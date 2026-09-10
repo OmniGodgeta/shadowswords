@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 12),
           Center(
             child: Text(
-              'ShadowSwords $_version',
+              'RetroVerse $_version',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),

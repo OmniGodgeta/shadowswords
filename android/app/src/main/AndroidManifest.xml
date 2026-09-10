@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Rumble / haptics from the in-browser emulator -->
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <!-- "Open ROM with ShadowSwords" from a legacy file:// path -->
+    <!-- "Open ROM with RetroVerse" from a legacy file:// path -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
     <!-- Keep the web music player alive in the background -->
@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="ShadowSwords"
+        android:label="RetroVerse"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:name="${applicationName}"
@@ -37,8 +37,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Open ROM with ShadowSwords -->
-            <intent-filter android:label="Play in ShadowSwords">
+            <!-- Open ROM with RetroVerse -->
+            <intent-filter android:label="Play in RetroVerse">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
@@ -50,8 +50,8 @@
                 <data android:mimeType="application/x-iso9660-image"/>
                 <data android:mimeType="application/x-cue"/>
             </intent-filter>
-            <!-- Share sheet: "Share → ShadowSwords" -->
-            <intent-filter android:label="Play in ShadowSwords">
+            <!-- Share sheet: "Share → RetroVerse" -->
+            <intent-filter android:label="Play in RetroVerse">
                 <action android:name="android.intent.action.SEND"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/octet-stream"/>
