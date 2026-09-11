@@ -17,7 +17,8 @@ in a fullscreen WebView.
 - Deep links: `shadowswords://play`, `shadowswords://play/random`, `shadowswords://netplay`, `shadowswords://movies`, `shadowswords://lounge`
 - Home-screen widget (Play / Surprise me / Movies)
 - Long-press the icon: Play / Surprise me / Netplay / Movies / Settings
-- Update notice when a new APK is on GitHub
+- Update notice downloads and installs the APK in-app (Install button)
+- Games lock landscape and hide the site chrome; a corner ‹ exits
 - Bluetooth controllers work (menu + in-game)
 
 **Gestures:** two-finger long-press = Settings · three-finger tap = screenshot to Pictures/RetroVerse

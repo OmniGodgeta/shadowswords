@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'ejs_cache.dart';
 import 'report_screen.dart';
@@ -14,12 +13,14 @@ class SettingsScreen extends StatefulWidget {
     required this.ejs,
     required this.onClearCache,
     required this.onCheckUpdate,
+    required this.onInstallUpdate,
   });
 
   final AppSettings settings;
   final EjsCache ejs;
   final Future<void> Function() onClearCache;
   final Future<String?> Function() onCheckUpdate; // returns newer version or null
+  final Future<void> Function() onInstallUpdate;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -259,17 +260,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () async {
               final messenger = ScaffoldMessenger.of(context);
+              final nav = Navigator.of(context);
               final v = await widget.onCheckUpdate();
+              if (!mounted) return;
               if (v == null) {
                 messenger.showSnackBar(
                   const SnackBar(content: Text("You're on the latest version")),
                 );
               } else {
-                await launchUrl(
-                  Uri.parse(
-                      'https://github.com/OmniGodgeta/shadowswords/releases/latest'),
-                  mode: LaunchMode.externalApplication,
-                );
+                nav.pop();
+                widget.onInstallUpdate();
               }
             },
           ),

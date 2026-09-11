@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:quick_actions/quick_actions.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -111,6 +113,9 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   DateTime? _lastBackPress;
   String? _updateVersion;
   bool _updateDismissed = false;
+  bool _updateBusy = false;
+  double? _updateProgress;
+  String? _updateError;
   String? _pendingHash; // from a shortcut / deep link, applied once ready
   bool _firstLoadDone = false;
   bool _showIntro = !settings.seenIntro;
@@ -384,12 +389,19 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     setState(() => _playing = playing);
     if (playing) {
       WakelockPlus.enable();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       if (settings.autoLandscapeForGames) {
-        SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+        SystemChrome.setPreferredOrientations(const [
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
       }
     } else {
       if (!settings.keepScreenOnAlways) WakelockPlus.disable();
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.portraitUp,
+      ]);
     }
   }
 
@@ -521,6 +533,79 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     if (newer != null && mounted) setState(() => _updateVersion = newer);
   }
 
+  Future<void> _installUpdate() async {
+    if (_updateBusy) return;
+    setState(() {
+      _updateBusy = true;
+      _updateError = null;
+      _updateProgress = 0;
+      _updateDismissed = false;
+    });
+    HttpClient? client;
+    try {
+      final meta = await http.get(
+        Uri.parse('https://api.github.com/repos/$kGithubRepo/releases/latest'),
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'User-Agent': 'RetroVerse-app',
+        },
+      ).timeout(const Duration(seconds: 12));
+      if (meta.statusCode != 200) throw 'release lookup failed';
+      final body = jsonDecode(meta.body) as Map<String, dynamic>;
+      final assets = (body['assets'] as List?) ?? const [];
+      Map<String, dynamic>? apk;
+      for (final a in assets) {
+        final m = (a as Map).cast<String, dynamic>();
+        if ('${m['name']}'.toLowerCase().endsWith('.apk')) { apk = m; break; }
+      }
+      final url = apk?['browser_download_url'] as String?;
+      if (url == null || url.isEmpty) throw 'no APK on the latest release';
+
+      client = HttpClient();
+      final req = await client.getUrl(Uri.parse(url));
+      req.headers.set('User-Agent', 'RetroVerse-app');
+      req.followRedirects = true;
+      final res = await req.close();
+      if (res.statusCode >= 400) throw 'download failed (${res.statusCode})';
+      final total = res.contentLength;
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/RetroVerse-update.apk');
+      final sink = file.openWrite();
+      var got = 0;
+      await for (final chunk in res) {
+        sink.add(chunk);
+        got += chunk.length;
+        if (mounted && total > 0) {
+          setState(() => _updateProgress = got / total);
+        }
+      }
+      await sink.close();
+      final status = await _native.invokeMethod<String>('installApk', file.path);
+      if (status == 'needPermission') {
+        if (mounted) {
+          setState(() {
+            _updateBusy = false;
+            _updateError =
+                'Allow RetroVerse to install updates, then tap Install again';
+          });
+        }
+        return;
+      }
+      if (status != 'ok') throw status ?? 'install failed';
+      if (mounted) setState(() { _updateBusy = false; _updateProgress = 1; });
+    } catch (e) {
+      logEvent('update install failed: $e');
+      if (mounted) {
+        setState(() {
+          _updateBusy = false;
+          _updateError = "Couldn't download the update — tap Install to retry";
+        });
+      }
+    } finally {
+      client?.close(force: true);
+    }
+  }
+
   // --- settings / actions ---------------------------------------------
 
   Future<void> _openSettings() async {
@@ -531,6 +616,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
           settings: settings,
           ejs: _ejs,
           onCheckUpdate: _fetchLatestNewer,
+          onInstallUpdate: _installUpdate,
           onClearCache: () async {
             await _controller.clearCache();
             await WebViewCookieManager().clearCookies();
@@ -597,7 +683,9 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         final messenger = ScaffoldMessenger.of(context);
         if (_playing) {
           await _controller.runJavaScript(
-            "(window.exitPlayer||function(){location.hash='#/play';location.reload();})();",
+            "(function(){try{if(window.exitPlayer)window.exitPlayer();"
+            "else{window.__emuUp=false;location.replace(location.pathname+'?_='+Date.now()+'#/play');}}"
+            "catch(e){location.replace(location.pathname+'?_='+Date.now()+'#/play');}})();",
           );
           return;
         }
@@ -623,14 +711,17 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       child: Scaffold(
         backgroundColor: const Color(0xFF0B0B0F),
         body: SafeArea(
+          top: !_playing,
+          bottom: !_playing,
           child: Column(
             children: [
-              if (_updateVersion != null && !_updateDismissed)
+              if (_updateVersion != null && !_updateDismissed && !_playing)
                 _UpdateBanner(
                   version: _updateVersion!,
-                  onOpen: () => _openExternal(
-                    'https://github.com/$kGithubRepo/releases/latest',
-                  ),
+                  busy: _updateBusy,
+                  progress: _updateProgress,
+                  error: _updateError,
+                  onInstall: _installUpdate,
                   onDismiss: () => setState(() => _updateDismissed = true),
                 ),
               Expanded(
@@ -715,40 +806,60 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
 class _UpdateBanner extends StatelessWidget {
   const _UpdateBanner({
     required this.version,
-    required this.onOpen,
+    required this.busy,
+    required this.progress,
+    required this.error,
+    required this.onInstall,
     required this.onDismiss,
   });
 
   final String version;
-  final VoidCallback onOpen;
+  final bool busy;
+  final double? progress;
+  final String? error;
+  final VoidCallback onInstall;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final pct = ((progress ?? 0) * 100).clamp(0, 100).round();
+    final label = error ??
+        (busy
+            ? (progress == 1 ? 'Opening installer…' : 'Downloading $pct%')
+            : 'RetroVerse $version is available');
     return Material(
       color: scheme.surfaceContainerHighest,
-      child: InkWell(
-        onTap: onOpen,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
-          child: Row(
-            children: [
-              const Icon(Icons.system_update_rounded, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'RetroVerse $version is available — tap to download',
-                  style: Theme.of(context).textTheme.bodySmall,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.system_update_rounded, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(label, style: Theme.of(context).textTheme.bodySmall),
                 ),
+                if (!busy)
+                  TextButton(
+                    onPressed: onInstall,
+                    child: const Text('Install'),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: busy ? null : onDismiss,
+                ),
+              ],
+            ),
+            if (busy && progress != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, right: 8),
+                child: LinearProgressIndicator(value: progress == 0 ? null : progress),
               ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded, size: 18),
-                visualDensity: VisualDensity.compact,
-                onPressed: onDismiss,
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
