@@ -120,6 +120,9 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   String? _pendingHash; // from a shortcut / deep link, applied once ready
   bool _firstLoadDone = false;
   bool _showIntro = !settings.seenIntro;
+  Timer? _healthProbeTimer;
+  bool _probeLastHealthy = true;
+  DateTime? _lastProbeTime;
 
   @override
   void initState() {
@@ -526,6 +529,41 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         _reload();
       }
     });
+    _startHealthProbe();
+  }
+
+  void _startHealthProbe() {
+    _healthProbeTimer?.cancel();
+    _healthProbeTimer =
+        Timer.periodic(const Duration(seconds: 30), (_) => _probeHealth());
+    // Run probe once immediately
+    _probeHealth();
+  }
+
+  Future<void> _probeHealth() async {
+    final start = DateTime.now();
+    try {
+      final uri = Uri.parse(settings.siteUrl).replace(path: '/health');
+      final resp = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 8));
+      final elapsed = DateTime.now().difference(start).inMilliseconds;
+      final healthy = resp.statusCode == 200;
+      if (healthy != _probeLastHealthy) {
+        logEvent('health probe: ${healthy ? 'recovered' : 'failed'} (${elapsed}ms)');
+        if (healthy && _hasError) {
+          _reload();
+        }
+        _probeLastHealthy = healthy;
+      }
+      _lastProbeTime = DateTime.now();
+    } catch (e) {
+      final elapsed = DateTime.now().difference(start).inMilliseconds;
+      if (_probeLastHealthy) {
+        logEvent('health probe: failed ($e, ${elapsed}ms)');
+        _probeLastHealthy = false;
+      }
+    }
   }
 
   Future<void> _runDiagnosis() async {
@@ -706,6 +744,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _healthProbeTimer?.cancel();
     _linkSub?.cancel();
     _connSub?.cancel();
     WakelockPlus.disable();
