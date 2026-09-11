@@ -116,6 +116,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   bool _updateBusy = false;
   double? _updateProgress;
   String? _updateError;
+  String? _pendingUpdatePath;
   String? _pendingHash; // from a shortcut / deep link, applied once ready
   bool _firstLoadDone = false;
   bool _showIntro = !settings.seenIntro;
@@ -431,6 +432,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (_pendingUpdatePath != null && !_updateBusy) _resumePendingUpdate();
       if (_playing || settings.keepScreenOnAlways) WakelockPlus.enable();
     } else if (state == AppLifecycleState.paused) {
       if (!settings.keepScreenOnAlways) WakelockPlus.disable();
@@ -603,6 +605,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         }
       }
       await sink.close();
+      _pendingUpdatePath = file.path;
       final status = await _native.invokeMethod<String>('installApk', file.path);
       if (status == 'needPermission') {
         if (mounted) {
@@ -614,6 +617,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         }
         return;
       }
+      _pendingUpdatePath = null;
       if (status != 'ok') throw status ?? 'install failed';
       if (mounted) setState(() { _updateBusy = false; _updateProgress = 1; });
     } catch (e) {
@@ -626,6 +630,20 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       }
     } finally {
       client?.close(force: true);
+    }
+  }
+
+  Future<void> _resumePendingUpdate() async {
+    final path = _pendingUpdatePath;
+    if (path == null) return;
+    try {
+      final status = await _native.invokeMethod<String>("installApk", path);
+      if (status == "ok") { _pendingUpdatePath = null; return; }
+      if (status == "needPermission") return;
+      throw status ?? "install failed";
+    } catch (e) {
+      logEvent("update resume failed: $e");
+      if (mounted) setState(() => _updateError = "Could not open installer; check Android install permission");
     }
   }
 

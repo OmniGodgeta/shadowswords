@@ -132,14 +132,13 @@ class MainActivity : FlutterActivity() {
             )
             return "needPermission"
         }
-        val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+        val uri = try { FileProvider.getUriForFile(this, "$packageName.fileprovider", file) } catch (e: Exception) { return "provider: ${e.javaClass.simpleName}" }
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             clipData = ClipData.newRawUri("", uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        startActivity(intent)
-        return "ok"
+        return try { startActivity(intent); "ok" } catch (e: Exception) { "installer: ${e.javaClass.simpleName}" }
     }
 }
