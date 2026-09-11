@@ -14,9 +14,9 @@ in a fullscreen WebView.
 - **Wake-on-LAN** — wakes the home server on launch / Retry (home Wi-Fi only)
 - Auto-retries when the network comes back; error screen has Retry / Tailscale / Settings
 - Open a ROM file ("Open with" / share sheet)
-- Deep links: `shadowswords://play`, `shadowswords://play/random`, `shadowswords://movies`
+- Deep links: `shadowswords://play`, `shadowswords://play/random`, `shadowswords://netplay`, `shadowswords://movies`, `shadowswords://lounge`
 - Home-screen widget (Play / Surprise me / Movies)
-- Long-press the icon: Play / Surprise me / Movies / Settings
+- Long-press the icon: Play / Surprise me / Netplay / Movies / Settings
 - Update notice when a new APK is on GitHub
 - Bluetooth controllers work (menu + in-game)
 

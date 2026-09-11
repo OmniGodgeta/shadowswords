@@ -411,6 +411,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         'play': '#/play',
         'random': '#/play/random',
         'movies': '#/movies',
+        'netplay': '#/netplay',
       };
       if (type == 'settings') {
         _openSettings();
@@ -422,6 +423,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     actions.setShortcutItems(const [
       ShortcutItem(type: 'play', localizedTitle: 'Play'),
       ShortcutItem(type: 'random', localizedTitle: 'Surprise me'),
+      ShortcutItem(type: 'netplay', localizedTitle: 'Netplay'),
       ShortcutItem(type: 'movies', localizedTitle: 'Movies'),
       ShortcutItem(type: 'settings', localizedTitle: 'Settings'),
     ]);
