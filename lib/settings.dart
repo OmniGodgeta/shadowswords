@@ -46,6 +46,18 @@ class AppSettings extends ChangeNotifier {
   bool get seenIntro => _prefs.getBool('seenIntro') ?? false;
   set seenIntro(bool v) => _set('seenIntro', v);
 
+  /// Last in-game hash, used to rejoin after the app is killed.
+  String get lastGameHash => _prefs.getString('lastGameHash') ?? '';
+  int get lastGameAt => _prefs.getInt('lastGameAt') ?? 0;
+  void rememberGame(String hash) {
+    _prefs.setString('lastGameHash', hash);
+    _prefs.setInt('lastGameAt', DateTime.now().millisecondsSinceEpoch);
+  }
+  void forgetGame() {
+    _prefs.remove('lastGameHash');
+    _prefs.remove('lastGameAt');
+  }
+
   /// Route EmulatorJS's files through the app's on-disk cache so games play
   /// offline once fetched.
   bool get offlineEmulator => _prefs.getBool('offlineEmulator') ?? false;

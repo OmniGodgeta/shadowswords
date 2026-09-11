@@ -19,6 +19,7 @@ in a fullscreen WebView.
 - Long-press the icon: Play / Surprise me / Netplay / Movies / Settings
 - Update notice downloads and installs the APK in-app (Install button)
 - Games lock landscape and hide the site chrome; a corner ‹ exits
+- Killing the app mid-game restores the same title (and netplay room) for 15 minutes
 - Bluetooth controllers work (menu + in-game)
 
 **Gestures:** two-finger long-press = Settings · three-finger tap = screenshot to Pictures/RetroVerse

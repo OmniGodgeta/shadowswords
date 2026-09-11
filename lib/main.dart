@@ -192,6 +192,10 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
           } catch (_) {}
         },
       )
+      ..addJavaScriptChannel(
+        'SSPlay',
+        onMessageReceived: (msg) => _setPlaying(msg.message == '1'),
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onProgress: (p) => setState(() => _progress = p),
@@ -211,6 +215,15 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             if (settings.hapticControls) _injectHaptics();
             if (!_firstLoadDone) {
               _firstLoadDone = true;
+              if (_pendingHash == null) {
+                final age = DateTime.now().millisecondsSinceEpoch -
+                    settings.lastGameAt;
+                if (settings.lastGameHash.startsWith('#/play/') &&
+                    age > 0 &&
+                    age < 15 * 60 * 1000) {
+                  _pendingHash = settings.lastGameHash;
+                }
+              }
               _applyPendingHash();
             }
             _romImport.onPageReady();
@@ -385,6 +398,16 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
 
   void _onUrlChange(String url) {
     final playing = _playingRe.hasMatch(url);
+    if (playing) {
+      final hash = Uri.tryParse(url)?.fragment;
+      if (hash != null && hash.isNotEmpty) settings.rememberGame('#$hash');
+    } else {
+      settings.forgetGame();
+    }
+    _setPlaying(playing);
+  }
+
+  void _setPlaying(bool playing) {
     if (playing == _playing) return;
     setState(() => _playing = playing);
     if (playing) {
