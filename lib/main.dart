@@ -124,6 +124,25 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   bool _probeLastHealthy = true;
   DateTime? _lastProbeTime;
 
+  // Netplay invite notifications (native poll while backgrounded).
+  String? _notifyCid;
+  String? _notifyOrigin;
+  bool _notifyOn = true;
+  bool _inviteWatchRunning = false;
+  bool _backgrounded = false;
+
+  void _syncInviteWatch() {
+    final want = _backgrounded && _notifyOn &&
+        (_notifyCid?.isNotEmpty ?? false) && (_notifyOrigin?.isNotEmpty ?? false);
+    if (want == _inviteWatchRunning) return;
+    _inviteWatchRunning = want;
+    if (want) {
+      _native.invokeMethod('startInviteWatch', {'cid': _notifyCid, 'origin': _notifyOrigin});
+    } else {
+      _native.invokeMethod('stopInviteWatch');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -199,6 +218,20 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       ..addJavaScriptChannel(
         'SSPlay',
         onMessageReceived: (msg) => _setPlaying(msg.message == '1'),
+      )
+      ..addJavaScriptChannel(
+        'SSNotify',
+        onMessageReceived: (msg) {
+          // Site registers the presence id + origin so we can watch for netplay
+          // invites natively while backgrounded.
+          try {
+            final d = jsonDecode(msg.message) as Map;
+            _notifyCid = (d['cid'] as String?)?.trim();
+            _notifyOrigin = (d['origin'] as String?)?.trim();
+            _notifyOn = d['on'] != false;
+            _syncInviteWatch();
+          } catch (_) {}
+        },
       )
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -346,6 +379,14 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   }
 
   Future<dynamic> _onNativeCall(MethodCall call) async {
+    if (call.method == 'openInvite') {
+      // Tapped a native invite notification — open its join link in the WebView.
+      final url = call.arguments as String? ?? '';
+      if (url.isNotEmpty) {
+        try { _controller.loadRequest(Uri.parse(url)); } catch (_) {}
+      }
+      return null;
+    }
     if (call.method != 'transport') return null;
     final e = call.arguments as String? ?? '';
     final js = switch (e) {
@@ -435,9 +476,13 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _backgrounded = false;
+      _syncInviteWatch();
       if (_pendingUpdatePath != null && !_updateBusy) _resumePendingUpdate();
       if (_playing || settings.keepScreenOnAlways) WakelockPlus.enable();
     } else if (state == AppLifecycleState.paused) {
+      _backgrounded = true;
+      _syncInviteWatch();
       if (!settings.keepScreenOnAlways) WakelockPlus.disable();
     }
   }

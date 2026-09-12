@@ -1,4 +1,30 @@
 
+## Native netplay invite notifications (2026-09-12)
+
+The WebView is throttled while the app is backgrounded, so the site's 3 s
+`/play/invites` poll misses invites. Fix: the site posts its presence id to the
+app's `SSNotify` JS channel (`notifyApp()` in the site's `app.js`); Dart stores
+it and, **only while backgrounded**, tells Kotlin to poll.
+
+- `lib/main.dart`: `SSNotify` channel handler → `_notifyCid/_notifyOrigin/_notifyOn`;
+  `_syncInviteWatch()` starts/stops the native watch from
+  `didChangeAppLifecycleState` (plus when the site (re)registers). Native method
+  `openInvite` loads the join URL in the WebView.
+- `MainActivity.kt`: `startInviteWatch(cid, origin)` polls
+  `<origin>/play/invites?cid=` every 25 s on a background thread and, on a new
+  invite, posts a high-priority notification on channel `retroverse_invites`.
+  Tapping it launches MainActivity with a `joinUrl` extra → `onNewIntent` →
+  `_native.invokeMethod("openInvite", url)`.
+- Contract: the `SSNotify` payload is `{cid, origin, on}`; `/play/invites`
+  returns `{invites:[{id,fromName,name,room,sys,file}]}`. Changing either means
+  changing both repos.
+- **Needs an APK build** (Dart/Kotlin changed). Android 13+ requires the
+  `POST_NOTIFICATIONS` runtime grant (declared in the manifest) or notifications
+  are silently dropped. Only polls while the process is alive in the background —
+  a killed app gets nothing (that would need FCM).
+
+---
+
 ## App updater handoff (2026-09-11)
 
 The updater downloads the latest GitHub release APK and invokes Android package installation. It now retains the downloaded APK path when Android requests unknown-app installation permission and retries when the app resumes. Release APKs must use the same production keystore as the installed app; a debug-signed APK cannot be updated by a release-signed APK. Netplay browser controls are fixed in `shadowswords-gamelib` commit `a8aac2f` plus the follow-up browser visibility fix.
