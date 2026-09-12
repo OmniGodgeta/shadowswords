@@ -15,8 +15,15 @@ class AppSettings extends ChangeNotifier {
 
   final SharedPreferences _prefs;
 
-  static Future<AppSettings> load() async =>
-      AppSettings._(await SharedPreferences.getInstance());
+  static Future<AppSettings> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    // The custom domain is not currently published in DNS. Migrate installs
+    // that selected it back to the reachable tailnet origin.
+    if (prefs.getString('siteUrl') == 'https://retroverse.omni.net/') {
+      await prefs.setString('siteUrl', kTailnetUrl);
+    }
+    return AppSettings._(prefs);
+  }
 
   String get siteUrl => _prefs.getString('siteUrl') ?? _defaultSiteUrl;
   set siteUrl(String v) => _set('siteUrl', v.trim());

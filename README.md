@@ -2,7 +2,7 @@
 
 *(repo & package id stay `shadowswords`; the app is branded **RetroVerse**.)*
 
-Android app that opens the [RetroVerse game library](https://retroverse.omni.net/) (self-hosted behind the canonical domain)
+Android app that opens the [RetroVerse game library](https://retroverse.tail51f9d6.ts.net/) (self-hosted on the tailnet; `retroverse.omni.net` requires a published DNS/proxy route)
 in a fullscreen WebView.
 
 - Immersive fullscreen (status/nav bars hidden)
