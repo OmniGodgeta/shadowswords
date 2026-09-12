@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// The two built-in site locations. A third "custom" value is any other URL the
 /// user types in.
-const String kTailnetUrl = 'https://retroverse.tail51f9d6.ts.net/';
+const String kTailnetUrl = 'https://shadow-1.tail51f9d6.ts.net/';
 const String kPublicUrl = 'https://omnigodgeta.github.io/shadowswords-gamelib/';
 
 /// Build-time override (`--dart-define=SITE_URL=...`), else the tailnet.
@@ -15,15 +15,8 @@ class AppSettings extends ChangeNotifier {
 
   final SharedPreferences _prefs;
 
-  static Future<AppSettings> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    // The custom domain is not currently published in DNS. Migrate installs
-    // that selected it back to the reachable tailnet origin.
-    if (prefs.getString('siteUrl') == 'https://retroverse.omni.net/') {
-      await prefs.setString('siteUrl', kTailnetUrl);
-    }
-    return AppSettings._(prefs);
-  }
+  static Future<AppSettings> load() async =>
+      AppSettings._(await SharedPreferences.getInstance());
 
   String get siteUrl => _prefs.getString('siteUrl') ?? _defaultSiteUrl;
   set siteUrl(String v) => _set('siteUrl', v.trim());
