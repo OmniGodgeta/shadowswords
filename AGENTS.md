@@ -23,6 +23,14 @@ it and, **only while backgrounded**, tells Kotlin to poll.
   are silently dropped. Only polls while the process is alive in the background —
   a killed app gets nothing (that would need FCM).
 
+## Native netplay voice permission (2026-09-12)
+
+Android WebView does not automatically approve `getUserMedia()`. The wrapper
+therefore declares `RECORD_AUDIO`, handles the WebView platform permission
+request in Dart, and asks Android for the runtime microphone grant when the
+site sends `SSNotify` with `{mic:true}`. The site retries its mic request after
+that prompt. Keep this bridge in sync with `npGetMic()` in the game library.
+
 ---
 
 ## App updater handoff (2026-09-11)

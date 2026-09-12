@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Rumble / haptics from the in-browser emulator -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Netplay voice chat (getUserMedia inside the WebView) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- "Open ROM with RetroVerse" from a legacy file:// path -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>

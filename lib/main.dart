@@ -14,6 +14,7 @@ import 'package:quick_actions/quick_actions.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'diagnostics.dart';
 import 'ejs_cache.dart';
@@ -230,6 +231,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             _notifyOrigin = (d['origin'] as String?)?.trim();
             _notifyOn = d['on'] != false;
             _syncInviteWatch();
+            if (d['mic'] == true) _native.invokeMethod('requestMic');
           } catch (_) {}
         },
       )
@@ -287,6 +289,16 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         ),
       )
       ..loadRequest(Uri.parse(settings.siteUrl));
+    // Netplay voice chat calls getUserMedia inside the WebView. Android's
+    // WebView refuses it unless the app grants the permission request; grant
+    // audio (and camera) capture here. The Android RECORD_AUDIO runtime grant
+    // is requested separately (SSNotify "mic" → requestMic).
+    try {
+      final platform = _controller.platform;
+      if (platform is AndroidWebViewController) {
+        platform.setOnPlatformPermissionRequest((request) => request.grant());
+      }
+    } catch (_) {}
   }
 
   // --- external links -------------------------------------------------------

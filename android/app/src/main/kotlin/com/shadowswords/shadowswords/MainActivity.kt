@@ -1,5 +1,6 @@
 package com.shadowswords.shadowswords
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -7,6 +8,7 @@ import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -43,6 +45,8 @@ class MainActivity : FlutterActivity() {
     private var inviteRunnable: Runnable? = null
     private var lastInviteId: String? = null
     private val INVITE_CHANNEL = "retroverse_invites"
+    private var pendingMicResult: MethodChannel.Result? = null
+    private val MIC_REQ = 4711
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -85,6 +89,15 @@ class MainActivity : FlutterActivity() {
                     else { startInviteWatch(cid, origin); result.success(true) }
                 }
                 "stopInviteWatch" -> { stopInviteWatch(); result.success(true) }
+                "requestMic" -> {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                        checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                        result.success(true)
+                    } else {
+                        pendingMicResult = result
+                        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQ)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -108,6 +121,14 @@ class MainActivity : FlutterActivity() {
         setIntent(intent)
         intent.getStringExtra("joinUrl")?.let { url ->
             Handler(Looper.getMainLooper()).post { channel?.invokeMethod("openInvite", url) }
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == MIC_REQ) {
+            pendingMicResult?.success(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
+            pendingMicResult = null
         }
     }
 
