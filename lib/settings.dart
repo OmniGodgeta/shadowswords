@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// The two built-in site locations. A third "custom" value is any other URL the
 /// user types in.
-const String kTailnetUrl = 'https://shadow-1.tail51f9d6.ts.net/';
+const String kTailnetUrl = 'https://retroverse.tail51f9d6.ts.net/';
 const String kPublicUrl = 'https://omnigodgeta.github.io/shadowswords-gamelib/';
 
 /// Build-time override (`--dart-define=SITE_URL=...`), else the tailnet.

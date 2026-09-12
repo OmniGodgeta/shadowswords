@@ -12,7 +12,7 @@ import 'log.dart';
 class EjsCache {
   EjsCache({required this.upstreamBase});
 
-  /// e.g. `https://shadow-1.tail51f9d6.ts.net/` — `/emulatorjs/...` is appended.
+  /// e.g. `https://retroverse.tail51f9d6.ts.net/` — `/emulatorjs/...` is appended.
   String upstreamBase;
 
   HttpServer? _server;
