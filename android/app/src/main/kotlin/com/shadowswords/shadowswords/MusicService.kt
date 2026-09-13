@@ -74,20 +74,14 @@ class MusicService : Service() {
                 return START_NOT_STICKY
             }
 
-            override fun onTaskRemoved(rootIntent: Intent?) {
-                stopSelf()
-                super.onTaskRemoved(rootIntent)
-            }
-
-            override fun onDestroy() {
-                session.isActive = false
-                session.release()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                super.onDestroy()
-            }
             ACTION_UPDATE -> apply(intent.getStringExtra(EXTRA_STATE))
         }
         return START_NOT_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun apply(json: String?) {
@@ -228,6 +222,7 @@ class MusicService : Service() {
     override fun onDestroy() {
         session.isActive = false
         session.release()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 }
