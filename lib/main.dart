@@ -490,11 +490,23 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _backgrounded = false;
       _syncInviteWatch();
+      if (_playing) {
+        _controller.runJavaScript('window.__sswResumeNetplay?.()').then(
+          (_) {},
+          onError: (Object e, StackTrace s) => logEvent("netplay resume signal failed: $e"),
+        );
+      }
       if (_pendingUpdatePath != null && !_updateBusy) _resumePendingUpdate();
       if (_playing || settings.keepScreenOnAlways) WakelockPlus.enable();
     } else if (state == AppLifecycleState.paused) {
       _backgrounded = true;
       _syncInviteWatch();
+      if (_playing) {
+        _controller.runJavaScript('window.__sswBackgroundNetplay?.()').then(
+          (_) {},
+          onError: (Object e, StackTrace s) => logEvent("netplay background save signal failed: $e"),
+        );
+      }
       if (!settings.keepScreenOnAlways) WakelockPlus.disable();
     }
   }
