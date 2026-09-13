@@ -107,6 +107,11 @@ class MainActivity : FlutterActivity() {
                 "canOverlay" -> result.success(
                     Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
                 )
+                "backgroundApp" -> {
+                    // Used while a party call is live so back doesn't kill the call.
+                    moveTaskToBack(true)
+                    result.success(true)
+                }
                 "requestOverlay" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                         try {

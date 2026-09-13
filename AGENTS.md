@@ -19,10 +19,12 @@ floating bubble over other apps.
   `canOverlay`, `requestOverlay`; forwards `partyAction` to Dart.
 - Manifest adds `FOREGROUND_SERVICE_MICROPHONE` + `SYSTEM_ALERT_WINDOW` and the
   `<service android:name=".PartyService" ... foregroundServiceType="microphone">`.
-- **Limitation**: the call engine is still the Activity's WebView, so swiping the
-  app away ends the call. To finish true persistence, host the call in a
-  headless WebView owned by the service and hand it over on background. Tracked
-  in `shadowswords-gamelib/FEATURE-BACKLOG.md` §A.
+- **Limitation**: the call engine is still the Activity's WebView. While a party
+  is active, the back button backgrounds the app (`backgroundApp` →
+  `moveTaskToBack`) instead of exiting, so the call + bubble survive; swiping the
+  app away still ends it. To finish true persistence after swipe-away, host the
+  call in a headless WebView owned by the service and hand it over on
+  background. Tracked in `shadowswords-gamelib/FEATURE-BACKLOG.md` §A.
 - **Microphone handshake**: the WebView permission handler now waits for the
   native `RECORD_AUDIO` result and dispatches `ssw-mic` `{granted}` so the site
   stops retrying. `npGetMic()` retries while the dialog is open.

@@ -131,6 +131,9 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   bool _notifyOn = true;
   bool _inviteWatchRunning = false;
   bool _backgrounded = false;
+  // True while a party call is live; back then backgrounds the app instead of
+  // exiting so the call (foreground service) keeps running.
+  bool _partyActive = false;
 
   void _syncInviteWatch() {
     final want = _backgrounded && _notifyOn &&
@@ -238,11 +241,13 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             if (d['mic'] == true) _native.invokeMethod('requestMic');
             // Party call lifecycle: keep it alive in the background + bubble.
             if (d['party'] == true) {
+              _partyActive = true;
               _native.invokeMethod('partyStart', {'muted': d['muted'] == true});
               _native.invokeMethod<bool>('canOverlay').then((can) {
                 if (can == false) _native.invokeMethod('requestOverlay');
               }).catchError((_) {});
             } else if (d['party'] == false) {
+              _partyActive = false;
               _native.invokeMethod('partyStop');
             } else if (d['partyMute'] is bool) {
               _native.invokeMethod('partyMute', d['partyMute']);
@@ -913,6 +918,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         }
         if (await _controller.canGoBack()) {
           await _controller.goBack();
+          return;
+        }
+        if (_partyActive) {
+          // Keep the call alive: move to the background instead of exiting.
+          await _native.invokeMethod('backgroundApp');
           return;
         }
         final now = DateTime.now();
