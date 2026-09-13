@@ -301,8 +301,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       final platform = _controller.platform;
       if (platform is AndroidWebViewController) {
         platform.setOnPlatformPermissionRequest((request) async {
+          // Some webview_flutter versions expose audio capture as a dedicated
+          // type; match either so the OS permission is always requested.
           final needsMic = request.types
-              .contains(WebViewPermissionResourceType.microphone);
+                  .contains(WebViewPermissionResourceType.microphone) ||
+              request.types.any((t) => t.toString().toLowerCase().contains('audio'));
           if (!needsMic) {
             request.grant();
             return;
@@ -317,6 +320,13 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
               const SnackBar(content: Text('Microphone permission is required for voice chat')),
             );
           }
+          // Tell the page the OS dialog is settled so it can stop retrying (or
+          // explain the denial) instead of reporting a permission error.
+          try {
+            await _controller.runJavaScript(
+              'window.dispatchEvent(new CustomEvent("ssw-mic",{detail:{granted:$granted}}))',
+            );
+          } catch (_) {}
         });
       }
     } catch (e) {
