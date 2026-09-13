@@ -1,6 +1,16 @@
 
 ## Native netplay invite notifications (2026-09-12)
 
+## Android reliability handoff (2026-09-13)
+
+- WebView microphone requests now wait for the native `RECORD_AUDIO` runtime
+  result before calling `grant()`. This avoids the prior race where Android
+  showed approval but WebView still received a denied capture request.
+- Returning from the package installer or Settings rechecks GitHub Releases,
+  and the updater always resolves the latest release asset rather than
+  stepping through intermediate versions. Release APK for this change is
+  `v1.6.6`; keep production signing consistent with `android/key.properties`.
+
 The WebView is throttled while the app is backgrounded, so the site's 3 s
 `/play/invites` poll misses invites. Fix: the site posts its presence id to the
 app's `SSNotify` JS channel (`notifyApp()` in the site's `app.js`); Dart stores

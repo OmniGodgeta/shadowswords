@@ -94,6 +94,7 @@ class MainActivity : FlutterActivity() {
                         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         result.success(true)
                     } else {
+                        pendingMicResult?.success(false)
                         pendingMicResult = result
                         requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQ)
                     }

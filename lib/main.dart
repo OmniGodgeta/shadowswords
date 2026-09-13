@@ -300,9 +300,28 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     try {
       final platform = _controller.platform;
       if (platform is AndroidWebViewController) {
-        platform.setOnPlatformPermissionRequest((request) => request.grant());
+        platform.setOnPlatformPermissionRequest((request) async {
+          final needsMic = request.types
+              .contains(WebViewPermissionResourceType.microphone);
+          if (!needsMic) {
+            request.grant();
+            return;
+          }
+          final granted =
+              await _native.invokeMethod<bool>('requestMic') ?? false;
+          if (granted) {
+            request.grant();
+          } else {
+            request.deny();
+            messengerKey.currentState?.showSnackBar(
+              const SnackBar(content: Text('Microphone permission is required for voice chat')),
+            );
+          }
+        });
       }
-    } catch (_) {}
+    } catch (e) {
+      logEvent('webview permission handler failed: $e');
+    }
   }
 
   // --- external links -------------------------------------------------------
@@ -517,6 +536,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         );
       }
       if (_pendingUpdatePath != null && !_updateBusy) _resumePendingUpdate();
+      if (!_playing && !_updateBusy) {
+        // Re-check after returning from Settings or the package installer so
+        // an intermediate release cannot leave a stale update banner.
+        _checkForUpdate();
+      }
       if (_playing || settings.keepScreenOnAlways) WakelockPlus.enable();
     } else if (state == AppLifecycleState.paused) {
       _backgrounded = true;
