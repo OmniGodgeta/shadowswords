@@ -192,6 +192,10 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         onMessageReceived: (msg) => _openExternal(msg.message),
       )
       ..addJavaScriptChannel(
+        'SSTV',
+        onMessageReceived: (msg) => _openLiveTv(msg.message),
+      )
+      ..addJavaScriptChannel(
         'SSRom',
         onMessageReceived: (msg) {
           if (msg.message.startsWith('error:')) {
@@ -330,6 +334,22 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     if (uri == null) return;
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+
+    Future<void> _openLiveTv(String json) async {
+      try {
+        final data = jsonDecode(json) as Map;
+        final url = data['url'] as String?;
+        if (url == null || url.isEmpty) return;
+        final vlc = Uri.parse('vlc://$url');
+        if (await canLaunchUrl(vlc)) {
+          await launchUrl(vlc, mode: LaunchMode.externalApplication);
+          return;
+        }
+        await _openExternal(url);
+      } catch (e) {
+        debugPrint('Live TV launch failed: $e');
+      }
     }
   }
 

@@ -111,6 +111,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         MusicService.transportSink = null
+        stopService(Intent(this, MusicService::class.java))
         stopInviteWatch()
         channel = null
         super.onDestroy()
