@@ -1,4 +1,32 @@
 
+## Party calls — foreground service + overlay bubble (2026-09-13, v1.6.7)
+
+Owner asked for Discord-like party calls that survive leaving the app, with a
+floating bubble over other apps.
+
+- **Site (game library ≥3.0)** runs the call: room on `arcade-server.mjs`
+  (`/party*`) + a WebRTC mesh in `PARTY` (`docs/assets/app.js`). It tells the
+  app through `SSNotify` and exposes `window.__sswPartyAction`.
+- **`SSNotify` contract** now also carries `{party:boolean, muted:boolean}` (in
+  addition to `{cid,origin,on,mic}`). `party:true` → start `PartyService`;
+  `party:false` → stop. Only sent for transmitting members (`!PARTY.watcher`),
+  because an Android 14 microphone-type FGS is rejected when the mic isn't in
+  use. Do not send `party:true` for listeners.
+- **`PartyService.kt`**: foreground service (type `microphone`) + a draggable
+  `TYPE_APPLICATION_OVERLAY` bubble (long-press mutes). `actionSink` sends
+  `"mute"|"unmute"|"leave"` back to Dart, which calls `window.__sswPartyAction`.
+- **`MainActivity.kt`**: methods `partyStart {muted}`, `partyStop`, `partyMute`,
+  `canOverlay`, `requestOverlay`; forwards `partyAction` to Dart.
+- Manifest adds `FOREGROUND_SERVICE_MICROPHONE` + `SYSTEM_ALERT_WINDOW` and the
+  `<service android:name=".PartyService" ... foregroundServiceType="microphone">`.
+- **Limitation**: the call engine is still the Activity's WebView, so swiping the
+  app away ends the call. To finish true persistence, host the call in a
+  headless WebView owned by the service and hand it over on background. Tracked
+  in `shadowswords-gamelib/FEATURE-BACKLOG.md` §A.
+- **Microphone handshake**: the WebView permission handler now waits for the
+  native `RECORD_AUDIO` result and dispatches `ssw-mic` `{granted}` so the site
+  stops retrying. `npGetMic()` retries while the dialog is open.
+
 ## Native netplay invite notifications (2026-09-12)
 
 ## Android reliability handoff (2026-09-13)

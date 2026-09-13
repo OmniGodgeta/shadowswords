@@ -236,6 +236,17 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
             _notifyOn = d['on'] != false;
             _syncInviteWatch();
             if (d['mic'] == true) _native.invokeMethod('requestMic');
+            // Party call lifecycle: keep it alive in the background + bubble.
+            if (d['party'] == true) {
+              _native.invokeMethod('partyStart', {'muted': d['muted'] == true});
+              _native.invokeMethod<bool>('canOverlay').then((can) {
+                if (can == false) _native.invokeMethod('requestOverlay');
+              }).catchError((_) {});
+            } else if (d['party'] == false) {
+              _native.invokeMethod('partyStop');
+            } else if (d['partyMute'] is bool) {
+              _native.invokeMethod('partyMute', d['partyMute']);
+            }
           } catch (_) {}
         },
       )
@@ -446,6 +457,14 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       if (url.isNotEmpty) {
         try { _controller.loadRequest(Uri.parse(url)); } catch (_) {}
       }
+      return null;
+    }
+    if (call.method == 'partyAction') {
+      // Notification / floating-bubble controls for the party call.
+      final action = call.arguments as String? ?? '';
+      await _controller.runJavaScript(
+        'window.__sswPartyAction && window.__sswPartyAction(${jsonEncode(action)});',
+      );
       return null;
     }
     if (call.method != 'transport') return null;

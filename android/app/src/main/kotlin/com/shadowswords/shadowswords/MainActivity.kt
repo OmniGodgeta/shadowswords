@@ -73,6 +73,51 @@ class MainActivity : FlutterActivity() {
                     )
                     result.success(true)
                 }
+                "partyStart" -> {
+                    val m = call.arguments as? Map<*, *>
+                    val muted = m?.get("muted") as? Boolean ?: false
+                    val i = Intent(this, PartyService::class.java).apply {
+                        action = PartyService.ACTION_START
+                        putExtra(PartyService.EXTRA_MUTED, muted)
+                    }
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                            startForegroundService(i) else startService(i)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
+                "partyStop" -> {
+                    startService(
+                        Intent(this, PartyService::class.java)
+                            .setAction(PartyService.ACTION_STOP)
+                    )
+                    result.success(true)
+                }
+                "partyMute" -> {
+                    val muted = (call.arguments as? Boolean) ?: true
+                    startService(
+                        Intent(this, PartyService::class.java)
+                            .setAction(PartyService.ACTION_MUTE)
+                            .putExtra(PartyService.EXTRA_MUTED, muted)
+                    )
+                    result.success(true)
+                }
+                "canOverlay" -> result.success(
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+                )
+                "requestOverlay" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+                        try {
+                            startActivity(
+                                Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        } catch (_: Exception) { /* */ }
+                    }
+                    result.success(true)
+                }
                 "installApk" -> {
                     val path = call.arguments as? String
                     if (path.isNullOrBlank()) {
@@ -108,10 +153,17 @@ class MainActivity : FlutterActivity() {
                 channel?.invokeMethod("transport", event)
             }
         }
+        // Notification / floating-bubble controls for the party call.
+        PartyService.actionSink = { action ->
+            Handler(Looper.getMainLooper()).post {
+                channel?.invokeMethod("partyAction", action)
+            }
+        }
     }
 
     override fun onDestroy() {
         MusicService.transportSink = null
+        PartyService.actionSink = null
         stopService(Intent(this, MusicService::class.java))
         stopInviteWatch()
         channel = null
