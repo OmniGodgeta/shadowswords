@@ -123,7 +123,6 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   bool _showIntro = !settings.seenIntro;
   Timer? _healthProbeTimer;
   bool _probeLastHealthy = true;
-  DateTime? _lastProbeTime;
 
   // Netplay invite notifications (native poll while backgrounded).
   String? _notifyCid;
@@ -710,7 +709,6 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         }
         _probeLastHealthy = healthy;
       }
-      _lastProbeTime = DateTime.now();
     } catch (e) {
       final elapsed = DateTime.now().difference(start).inMilliseconds;
       if (_probeLastHealthy) {
