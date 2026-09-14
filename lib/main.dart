@@ -134,6 +134,8 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   // True while a party call is live; back then backgrounds the app instead of
   // exiting so the call (foreground service) keeps running.
   bool _partyActive = false;
+  // An invite tapped while the app was cold-starting; applied after first load.
+  String? _pendingInviteUrl;
 
   void _syncInviteWatch() {
     final want = _backgrounded && _notifyOn &&
@@ -284,6 +286,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
                 }
               }
               _applyPendingHash();
+            }
+            if (_pendingInviteUrl != null) {
+              final u = _pendingInviteUrl!;
+              _pendingInviteUrl = null;
+              try { _controller.loadRequest(Uri.parse(u)); } catch (_) {}
             }
             _romImport.onPageReady();
           },
@@ -459,9 +466,9 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     if (call.method == 'openInvite') {
       // Tapped a native invite notification — open its join link in the WebView.
       final url = call.arguments as String? ?? '';
-      if (url.isNotEmpty) {
-        try { _controller.loadRequest(Uri.parse(url)); } catch (_) {}
-      }
+      if (url.isEmpty) return null;
+      if (!_firstLoadDone) { _pendingInviteUrl = url; return null; }
+      try { await _controller.loadRequest(Uri.parse(url)); } catch (_) {}
       return null;
     }
     if (call.method == 'partyAction') {

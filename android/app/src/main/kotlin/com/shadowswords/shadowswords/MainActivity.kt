@@ -164,6 +164,15 @@ class MainActivity : FlutterActivity() {
                 channel?.invokeMethod("partyAction", action)
             }
         }
+        // Tapping an invite notification when the app was killed delivers the
+        // join URL as the launch intent, not through onNewIntent. Forward it
+        // once the channel exists so cold starts can join too.
+        intent?.getStringExtra("joinUrl")?.let { url ->
+            intent.removeExtra("joinUrl")
+            Handler(Looper.getMainLooper()).post {
+                channel?.invokeMethod("openInvite", url)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -214,8 +223,12 @@ class MainActivity : FlutterActivity() {
                                 val room = inv.optString("room")
                                 val sys = inv.optString("sys")
                                 val file = inv.optString("file")
+                                // Encode each segment: ROM names contain spaces,
+                                // brackets and sometimes sub-directories.
+                                val enc = { s: String -> URLEncoder.encode(s, "UTF-8").replace("+", "%20") }
+                                val filePath = file.split("/").joinToString("/") { enc(it) }
                                 val join = if (room.isNotEmpty())
-                                    "$base/?join=" + URLEncoder.encode(room, "UTF-8") + "#/play/$sys/$file"
+                                    "$base/?join=" + enc(room) + "#/play/" + enc(sys) + "/" + filePath
                                 else "$base/"
                                 inviteHandler.post { postInviteNotification(from, game, join) }
                             }

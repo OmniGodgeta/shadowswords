@@ -2,7 +2,8 @@
 ## Party calls — foreground service + overlay bubble (2026-09-13, v1.6.7)
 
 Owner asked for Discord-like party calls that survive leaving the app, with a
-floating bubble over other apps.
+floating bubble over other apps. Also see the **netplay invite fixes (v1.6.9)**
+at the bottom of this section: cold-start invites and URL-encoded join links.
 
 - **Site (game library ≥3.0)** runs the call: room on `arcade-server.mjs`
   (`/party*`) + a WebRTC mesh in `PARTY` (`docs/assets/app.js`). It tells the
@@ -28,6 +29,17 @@ floating bubble over other apps.
 - **Microphone handshake**: the WebView permission handler now waits for the
   native `RECORD_AUDIO` result and dispatches `ssw-mic` `{granted}` so the site
   stops retrying. `npGetMic()` retries while the dialog is open.
+
+## Netplay invite fixes (2026-09-13, v1.6.9)
+
+- **Cold-start join**: `MainActivity.configureFlutterEngine` now reads the launch
+  `joinUrl` extra and forwards it to Dart, because `onNewIntent` is not called
+  when Android starts the process from the notification. Dart stores it in
+  `_pendingInviteUrl` and loads it after the first page finishes.
+- **Join URL encoding**: `startInviteWatch` URL-encodes each `sys`/`file`
+  segment (ROM names have spaces/brackets/sub-dirs).
+- Netplay **lag** is mostly decided by the site (`npMode`, default input/state
+  sync). Android should rarely need changes for that.
 
 ## Native netplay invite notifications (2026-09-12)
 
