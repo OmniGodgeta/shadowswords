@@ -402,11 +402,14 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       final data = jsonDecode(json) as Map;
       final url = data['url'] as String?;
       if (url == null || url.isEmpty) return;
-      final vlc = Uri.parse('vlc://$url');
-      if (await canLaunchUrl(vlc)) {
-        await launchUrl(vlc, mode: LaunchMode.externalApplication);
-        return;
-      }
+      // Used to prefix the stream URL with "vlc://" (producing e.g.
+      // "vlc://https://host/stream.m3u8") hoping Android would route it to
+      // VLC specifically. That's not a real URI VLC understands — it saw a
+      // malformed/nested reference and errored "Multiple media cannot be
+      // played" instead of ever playing the actual stream. The stream's own
+      // https:// URL, launched the same way every other external link on
+      // this site already is, is what Android's app chooser (VLC included)
+      // actually knows how to open.
       await _openExternal(url);
     } catch (e) {
       debugPrint('Live TV launch failed: $e');

@@ -1,4 +1,32 @@
 
+## Mic permission race + Live TV VLC intent bug (2026-09-16, v1.6.11)
+
+Two bugs found from owner reports the same day as v1.6.10.
+
+- **Mic permission race**: owner's exact words were the tell — "I see the
+  popup, I allow every time, and then it tells me permissions denied."
+  `MainActivity.kt`'s native `requestMic` method has two independent call
+  sites (the WebView's own `onPlatformPermissionRequest`, triggered by
+  `getUserMedia()`; and a fire-and-forget `SSNotify{mic:true}` ping the site
+  sends to nudge the OS dialog open early) sharing one `pendingMicResult`
+  slot with no queueing — whichever call registered second resolved the
+  *first* with `success(false)` before the user had answered anything, so
+  the dialog the user actually saw and allowed belonged to whichever call
+  registered last, while the call that actually decided `request.grant()`/
+  `deny()` was often already dead. Fixed: queue every pending result
+  (`pendingMicResults: MutableList<MethodChannel.Result>`), resolve all of
+  them with the real answer once the user actually responds. `flutter build
+  apk --release` compiles clean; **not yet confirmed fixed on a real
+  device** — next session should verify, not just trust the race theory.
+- **Live TV: VLC said "Multiple media cannot be played"**: `_openLiveTv`
+  built `Uri.parse('vlc://$url')` — literally prefixing `vlc://` onto the
+  channel's own `https://` URL, a malformed nested URI. Fixed: just call the
+  existing `_openExternal(url)` helper (same one every other external link
+  on the site uses) with the raw stream URL; Android's app-chooser routes it
+  to VLC correctly without any scheme trickery.
+
+`pubspec.yaml` → `1.6.11+22`.
+
 ## Watch-party video wouldn't play in WebView (2026-09-16, v1.6.10)
 
 Owner: pressed Watch on Android, saw a blank/placeholder player instead of the
