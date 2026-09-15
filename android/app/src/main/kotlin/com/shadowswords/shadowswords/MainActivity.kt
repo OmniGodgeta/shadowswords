@@ -45,7 +45,19 @@ class MainActivity : FlutterActivity() {
     private var inviteRunnable: Runnable? = null
     private var lastInviteId: String? = null
     private val INVITE_CHANNEL = "retroverse_invites"
-    private var pendingMicResult: MethodChannel.Result? = null
+    // Two independent call sites can both invoke "requestMic" close together:
+    // the WebView's own onPlatformPermissionRequest (fired by getUserMedia)
+    // and a fire-and-forget SSNotify{mic:true} ping the site sends to nudge
+    // the OS dialog open early. A single pendingMicResult slot meant the
+    // second call clobbered the first with success(false) *before the user
+    // had answered anything* — the dialog the user actually saw and allowed
+    // belonged to whichever call registered last, while the earlier call
+    // (often the one whose result actually decided request.grant/deny) had
+    // already been resolved false. That's the "I allow every time and it
+    // still says denied" bug. Fix: queue every pending result and resolve
+    // them all with the real answer once the user actually responds, instead
+    // of only the most recently stored one.
+    private val pendingMicResults = mutableListOf<MethodChannel.Result>()
     private val MIC_REQ = 4711
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -144,9 +156,12 @@ class MainActivity : FlutterActivity() {
                         checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
                         result.success(true)
                     } else {
-                        pendingMicResult?.success(false)
-                        pendingMicResult = result
-                        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQ)
+                        val alreadyPending = pendingMicResults.isNotEmpty()
+                        pendingMicResults.add(result)
+                        // A dialog is already up for an earlier caller — queue behind
+                        // it instead of firing requestPermissions again (that's what
+                        // used to clobber the earlier call's result with false).
+                        if (!alreadyPending) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), MIC_REQ)
                     }
                 }
                 else -> result.notImplemented()
@@ -195,8 +210,9 @@ class MainActivity : FlutterActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == MIC_REQ) {
-            pendingMicResult?.success(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)
-            pendingMicResult = null
+            val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+            pendingMicResults.forEach { it.success(granted) }
+            pendingMicResults.clear()
         }
     }
 
