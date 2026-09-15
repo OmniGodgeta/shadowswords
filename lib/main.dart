@@ -322,6 +322,15 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
     try {
       final platform = _controller.platform;
       if (platform is AndroidWebViewController) {
+        // Android WebView defaults to requiring a user gesture before any
+        // <video> element may play — true even for muted, autoplay-attribute
+        // video. The netplay/mirror video (#np-video) usually gets away with
+        // it because it starts after several taps already happened getting
+        // into a game, but the watch-party page's video is populated
+        // asynchronously once a WebRTC track arrives, which isn't a gesture
+        // in the WebView's eyes — so it stays on the native "tap to play"
+        // placeholder even though our JS already promoted it to visible.
+        platform.setMediaPlaybackRequiresUserGesture(false);
         platform.setOnPlatformPermissionRequest((request) async {
           // Some webview_flutter versions expose audio capture as a dedicated
           // type; match either so the OS permission is always requested.

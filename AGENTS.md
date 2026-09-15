@@ -1,4 +1,28 @@
 
+## Watch-party video wouldn't play in WebView (2026-09-16, v1.6.10)
+
+Owner: pressed Watch on Android, saw a blank/placeholder player instead of the
+host's stream (screenshot showed the native unstarted-`<video>` icon).
+
+- Android WebView's documented default is `mediaPlaybackRequiresUserGesture =
+  true` — it blocks **all** `<video>` playback, muted/autoplay included, until
+  a user gesture. `main.dart` never called the setter, so the default stood.
+  Netplay's own in-game video (`#np-video`) gets away with it because the user
+  has already tapped through several screens by the time it needs to
+  autoplay; the watch page's video is populated asynchronously off a WebRTC
+  track event, which the WebView doesn't count as a gesture.
+- Fix: `AndroidWebViewController.setMediaPlaybackRequiresUserGesture(false)`
+  in `_initWebView()`, next to the existing mic-permission handler (same
+  `if (platform is AndroidWebViewController)` block). `webview_flutter_android`
+  exposes it (`lib/src/android_webview_controller.dart`); confirmed via
+  `flutter analyze` only — **not yet verified on a real device**.
+- Companion site fix (same session, `shadowswords-gamelib` 3.17): the watch
+  page's own JS had a fallback-display bug that meant even a failed stream
+  showed nothing recoverable. See that repo's `AGENT-MEMORY.md` 2026-09-16
+  entry for the full diagnosis — this app-side fix alone may not be sufficient
+  without it.
+- `pubspec.yaml` → `1.6.10+21`.
+
 ## Party calls — foreground service + overlay bubble (2026-09-13, v1.6.7)
 
 Owner asked for Discord-like party calls that survive leaving the app, with a
