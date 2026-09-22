@@ -1,4 +1,40 @@
 
+## Status-check note (2026-09-22, cross-project audit)
+
+- The versionCode fix directly below is **confirmed shipped and current**:
+  `pubspec.yaml` is `1.6.14+23`, matching the latest published GitHub release
+  (`v1.6.14`). No further action needed on that specific bug.
+- **Fixed (2026-09-22).** `installApk()`'s `PackageInstaller` session rewrite
+  in `MainActivity.kt` had two real bugs (not just the API-usage one an
+  earlier note here described): `createSessionParams()` isn't a real method
+  — replaced with `PackageInstaller.SessionParams(SessionParams.MODE_FULL_INSTALL)`
+  → `createSession(params)` (returns an `Int` id) → `openSession(id)` to get
+  the actual `Session`; and `session.commit()` needs an `IntentSender`, built
+  here via `PendingIntent.getActivity(this, sessionId, statusIntent,
+  FLAG_UPDATE_CURRENT or FLAG_MUTABLE)` targeting this same `singleTask`
+  Activity (so the result lands in `onNewIntent`, which now no-ops on it —
+  Dart's existing resume-and-recheck flow already re-verifies the installed
+  version independently, so no new Dart plumbing was needed). Separately —
+  **the uncommitted diff had also deleted the file's final closing `}`**
+  (the one closing `class MainActivity`), an unrelated brace bug in the same
+  change; added back. The FileProvider/`ACTION_VIEW` fallback path was left
+  as-is (it looked correct). **Verified to actually compile**: `cd android &&
+  JAVA_HOME=/usr/lib/jvm/java-17-openjdk ./gradlew :app:compileDebugKotlin`
+  → `BUILD SUCCESSFUL` (java-21-openjdk's toolchain lacks `javac` for Gradle
+  here — same pre-existing local JDK issue `sentinel/CLAUDE.md` documents;
+  point Gradle at java-17-openjdk). **Not verified on a real device** — no
+  device/emulator available in this environment; the actual install-and-
+  update behavior still needs a real on-device check before trusting it in
+  production.
+- Two stray untracked files sit in the repo root and don't belong to this
+  project: `env.json` (a local Supabase demo config — URL/anon key — that
+  looks like it belongs to the unrelated `peak` project, not RetroVerse) and
+  `NETWORK-INCIDENT-2026-09-11.md` (a pointer stub to the real incident note
+  at the workspace root, left by another agent for cross-repo coordination).
+  Neither is committed; move or delete them rather than letting them linger
+  — check with the user before deleting `env.json` specifically since it may
+  still be in active use for local Peak testing from this directory.
+
 ## Update installs silently failing — versionCode never bumped (2026-09-22, v1.6.14)
 
 Owner report: tapping Install starts the update, then it "just closes by

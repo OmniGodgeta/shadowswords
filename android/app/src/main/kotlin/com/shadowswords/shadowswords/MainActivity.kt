@@ -59,6 +59,7 @@ class MainActivity : FlutterActivity() {
     // of only the most recently stored one.
     private val pendingMicResults = mutableListOf<MethodChannel.Result>()
     private val MIC_REQ = 4711
+    private val ACTION_PACKAGE_INSTALL_STATUS = "com.shadowswords.shadowswords.PACKAGE_INSTALL_STATUS"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -205,6 +206,13 @@ class MainActivity : FlutterActivity() {
         intent.getStringExtra("joinUrl")?.let { url ->
             Handler(Looper.getMainLooper()).post { channel?.invokeMethod("openInvite", url) }
         }
+        if (intent.action == ACTION_PACKAGE_INSTALL_STATUS) {
+            // PackageInstaller.Session.commit() result. The install itself either
+            // succeeds silently (app just updates) or the system shows its own
+            // confirmation/error UI — nothing for us to display here, but Dart's
+            // resume-and-recheck flow (see app updater handoff notes below)
+            // already re-verifies the installed version on app resume regardless.
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -336,6 +344,7 @@ class MainActivity : FlutterActivity() {
     private fun installApk(path: String): String {
         val file = File(path)
         if (!file.exists()) return "missing"
+        
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !packageManager.canRequestPackageInstalls()
         ) {
@@ -346,13 +355,45 @@ class MainActivity : FlutterActivity() {
             )
             return "needPermission"
         }
-        val uri = try { FileProvider.getUriForFile(this, "$packageName.fileprovider", file) } catch (e: Exception) { return "provider: ${e.javaClass.simpleName}" }
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            clipData = ClipData.newRawUri("", uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        // --- Robust PackageInstaller Session Approach ---
+        return try {
+            val packageInstaller = packageManager.packageInstaller
+            val params = android.content.pm.PackageInstaller.SessionParams(
+                android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
+            )
+            val sessionId = packageInstaller.createSession(params)
+            val session = packageInstaller.openSession(sessionId)
+
+            session.openWrite("package", 0, file.length()).use { outputStream ->
+                file.inputStream().use { inputStream -> inputStream.copyTo(outputStream) }
+                session.fsync(outputStream)
+            }
+
+            val statusIntent = Intent(this, MainActivity::class.java).apply {
+                action = ACTION_PACKAGE_INSTALL_STATUS
+            }
+            val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            val pendingIntent = PendingIntent.getActivity(this, sessionId, statusIntent, pendingIntentFlags)
+            session.commit(pendingIntent.intentSender)
+            session.close()
+            "ok"
+        } catch (e: Exception) {
+            // Fallback to the traditional method if Session fails
+            try {
+                val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = ClipData.newRawUri("", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+                "fallback_ok"
+            } catch (fallbackEx: Exception) {
+                "installer: ${fallbackEx.javaClass.simpleName}"
+            }
         }
-        return try { startActivity(intent); "ok" } catch (e: Exception) { "installer: ${e.javaClass.simpleName}" }
     }
 }
