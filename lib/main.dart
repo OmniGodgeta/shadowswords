@@ -808,26 +808,54 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       }
       await sink.close();
       _pendingUpdatePath = file.path;
+
+      // Trigger the native installer
       final status = await _native.invokeMethod<String>('installApk', file.path);
+      
       if (status == 'needPermission') {
         if (mounted) {
           setState(() {
             _updateBusy = false;
-            _updateError =
-                'Allow RetroVerse to install updates, then tap Install again';
+            _updateError = 'Allow RetroVerse to install updates, then tap Install again';
           });
         }
         return;
       }
-      _pendingUpdatePath = null;
-      if (status != 'ok') throw status ?? 'install failed';
-      if (mounted) setState(() { _updateBusy = false; _updateProgress = 1; });
+
+      if (status != 'ok') throw (status ?? 'install failed');
+
+      // --- POST-INSTALL VERIFICATION ---
+      // If the installer hangs/stops, the app version won't change.
+      // We wait a few seconds for the user to interact with the installer, 
+      // then check if the app succeeded in upgrading.
+      if (mounted) {
+        setState(() => _updateProgress = 1.0);
+        // Give the OS time to launch the installer and for the user to tap "Install"
+        await Future.delayed(const Duration(seconds: 5));
+        
+        final currentVer = (await PackageInfo.fromPlatform()).version;
+        // If the version we just tried to install is still the "current" one after 5s,
+        // it means the installation didn't trigger or was cancelled.
+        if (currentVer == _updateVersion) {
+          // We don't throw an error yet, as the user might just be mid-install.
+          // But we reset the busy state so they can try again.
+          setState(() {
+            _updateBusy = false;
+            _updateError = "Installer launched. If the app didn't update, please check your system settings.";
+          });
+        } else {
+          // Success! The app version changed. 
+          // Note: The app will actually restart, so this state update is mostly for logging.
+          _pendingUpdatePath = null;
+          if (mounted) setState(() => _updateBusy = false);
+        }
+      }
     } catch (e) {
       logEvent('update install failed: $e');
       if (mounted) {
         setState(() {
           _updateBusy = false;
-          _updateError = "Couldn't download the update — tap Install to retry";
+          _updateError = "Update failed: $e";
         });
       }
     } finally {
