@@ -1,4 +1,32 @@
 
+## Update installs silently failing — versionCode never bumped (2026-09-22, v1.6.14)
+
+Owner report: tapping Install starts the update, then it "just closes by
+itself" — no error, installer never completes.
+
+- **Root cause was not in the install-flow code at all.** `versionCode`/
+  `versionName` are derived straight from `pubspec.yaml`'s `version:` field
+  (`android/app/build.gradle` — `versionCode = flutter.versionCode`). Releases
+  `v1.6.12` and `v1.6.13` were tagged and published (v1.6.12 was a re-tag of
+  the identical `v1.6.11` tree; v1.6.13 added the post-install-verification
+  Dart code) **without bumping `pubspec.yaml`**, which was still
+  `1.6.11+22` — the same versionCode already installed on the phone.
+  Android's PackageInstaller silently refuses to install an APK whose
+  versionCode isn't strictly greater than the currently-installed one: the
+  installer UI opens and closes immediately with no dialog. No amount of
+  Dart/Kotlin install-flow fixes can matter while this holds — the app's own
+  update checker (`_fetchLatestNewer` in `lib/main.dart`) compares the GitHub
+  release **tag name** against the installed app version, so it correctly
+  offers "update available" for v1.6.12/v1.6.13, downloads a real APK, but
+  that APK can never actually install.
+- Fix: bumped `pubspec.yaml` to `1.6.14+23` and cut the release from that.
+  **Going forward: `pubspec.yaml`'s `version:` must be bumped for every
+  release, and the release tag should match it** — don't just push a new git
+  tag/commit and expect the app to update.
+- The post-install verification / structured error reporting added in
+  v1.6.13 (`lib/main.dart`, post-`installApk` version check) is legitimate
+  and was kept — it just couldn't matter until the versionCode bug was fixed.
+
 ## Mic permission race + Live TV VLC intent bug (2026-09-16, v1.6.11)
 
 Two bugs found from owner reports the same day as v1.6.10.
