@@ -51,3 +51,6 @@ app.*.map.json
 *.jks
 *.keystore
 **/key.properties
+
+# Local, untracked: a Peak local-Supabase config (see AGENTS.md). Never commit.
+env.json
