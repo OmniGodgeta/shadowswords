@@ -1,4 +1,20 @@
 
+## Streamed consoles follow the phone, and leaving quits the game (2026-10-03, v1.6.16)
+
+- **Rotation:** Play → a streamed console (PS2/GC/Wii/Xbox/Wii U/3DS/Switch)
+  navigates this WebView to `retroverse.tail51f9d6.ts.net` on ports 8722,
+  8723, 8724, 8725, 8727 or 8731. That is the same host, so it stays in the
+  app, but it is not a `#/play/…` URL. `_setPlaying` therefore left the
+  activity locked to portrait and turning the phone did nothing. `_streaming`
+  allows portrait and both landscapes (and upside-down) for those ports.
+  EJS games still lock to landscape when "auto landscape" is on.
+- **Closing:** back from a stream goes to the previous page, which drops
+  Selkies' websocket. Quitting the emulator is the server's job
+  (`shadowswords-gamelib` 3.31, `watchIdleStreams`) — this app does not call
+  `/stream/stop`. Swiping the app away closes the socket the same way.
+- `pubspec.yaml` → `1.6.16+25`. The phone does not get this until that APK
+  is installed. Site JS did not change.
+
 ## In-app updater actually works now — verified on an emulator (2026-10-02, v1.6.15)
 
 The 2026-09-22 `PackageInstaller` fix compiled but had never run. Tested end

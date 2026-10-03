@@ -111,6 +111,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   bool _hasError = false;
   ReachFailure? _reachFailure;
   bool _playing = false;
+  // Streamed consoles (Selkies) load in this WebView on the same host, on
+  // their own port. They are not an EJS #/play route, so they must not use
+  // the landscape lock — the phone's own rotation has to change the stream.
+  bool _streaming = false;
+  static const Set<int> _streamPorts = {8722, 8723, 8724, 8725, 8727, 8731};
   DateTime? _lastBackPress;
   String? _updateVersion;
   bool _updateDismissed = false;
@@ -554,15 +559,23 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
 
   static final RegExp _playingRe = RegExp(r'#/play/[^/]+/.+');
 
+  bool _isStreamUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    return _streamPorts.contains(uri.port);
+  }
+
   void _onUrlChange(String url) {
     final playing = _playingRe.hasMatch(url);
+    final streaming = _isStreamUrl(url);
     if (playing) {
       final hash = Uri.tryParse(url)?.fragment;
       if (hash != null && hash.isNotEmpty) settings.rememberGame('#$hash');
-    } else {
+    } else if (!streaming) {
       settings.forgetGame();
     }
     _setPlaying(playing);
+    _setStreaming(streaming);
   }
 
   void _setPlaying(bool playing) {
@@ -577,9 +590,32 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
           DeviceOrientation.landscapeRight,
         ]);
       }
-    } else {
+    } else if (!_streaming) {
       if (!settings.keepScreenOnAlways) WakelockPlus.disable();
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.portraitUp,
+      ]);
+    }
+  }
+
+  // Follow the sensor. The app otherwise stays locked to portrait, so turning
+  // the phone while a streamed console is open does nothing. EJS games still
+  // go through _setPlaying and lock to landscape.
+  void _setStreaming(bool streaming) {
+    if (streaming == _streaming) return;
+    setState(() => _streaming = streaming);
+    if (streaming) {
+      WakelockPlus.enable();
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else if (!_playing) {
+      if (!settings.keepScreenOnAlways) WakelockPlus.disable();
       SystemChrome.setPreferredOrientations(const [
         DeviceOrientation.portraitUp,
       ]);
@@ -603,7 +639,7 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
         // an intermediate release cannot leave a stale update banner.
         _checkForUpdate();
       }
-      if (_playing || settings.keepScreenOnAlways) WakelockPlus.enable();
+      if (_playing || _streaming || settings.keepScreenOnAlways) WakelockPlus.enable();
     } else if (state == AppLifecycleState.paused) {
       _backgrounded = true;
       _syncInviteWatch();
@@ -963,6 +999,16 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final messenger = ScaffoldMessenger.of(context);
+        if (_streaming) {
+          // Leaving the Selkies page drops its websocket. The server then
+          // quits the emulator; this just gets us back to the library.
+          if (await _controller.canGoBack()) {
+            await _controller.goBack();
+          } else {
+            await _controller.loadRequest(Uri.parse(settings.siteUrl));
+          }
+          return;
+        }
         if (_playing) {
           await _controller.runJavaScript(
             "(function(){try{if(window.exitPlayer)window.exitPlayer();"
@@ -998,11 +1044,11 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
       child: Scaffold(
         backgroundColor: const Color(0xFF0B0B0F),
         body: SafeArea(
-          top: !_playing,
-          bottom: !_playing,
+          top: !_playing && !_streaming,
+          bottom: !_playing && !_streaming,
           child: Column(
             children: [
-              if (_updateVersion != null && !_updateDismissed && !_playing)
+              if (_updateVersion != null && !_updateDismissed && !_playing && !_streaming)
                 _UpdateBanner(
                   version: _updateVersion!,
                   busy: _updateBusy,
