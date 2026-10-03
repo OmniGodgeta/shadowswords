@@ -474,6 +474,16 @@ class _WebShellState extends State<WebShell> with WidgetsBindingObserver {
   }
 
   Future<dynamic> _onNativeCall(MethodCall call) async {
+    if (call.method == 'installStatus') {
+      // PackageInstaller reported a failure after commit (InstallStatusReceiver).
+      if (mounted) {
+        setState(() {
+          _updateBusy = false;
+          _updateError = '${call.arguments ?? 'install failed'}';
+        });
+      }
+      return null;
+    }
     if (call.method == 'openInvite') {
       // Tapped a native invite notification — open its join link in the WebView.
       final url = call.arguments as String? ?? '';

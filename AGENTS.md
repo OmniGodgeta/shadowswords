@@ -1,4 +1,30 @@
 
+## In-app updater actually works now — verified on an emulator (2026-10-02, v1.6.15)
+
+The 2026-09-22 `PackageInstaller` fix compiled but had never run. Tested end
+to end on the `pixel_api35` emulator (Android 15) with a build of the new code
+labelled `1.6.13+22`, updating itself to the real GitHub `v1.6.14`:
+
+- **It was still broken.** `commit()`'s result went to MainActivity via
+  `PendingIntent.getActivity()`; Android 14+ blocks that as a background
+  activity launch (logcat: `Background activity launch blocked!`), so
+  `STATUS_PENDING_USER_ACTION` never arrived and the banner sat on "Opening
+  installer…" forever.
+- **Fix:** new `InstallStatusReceiver.kt` (manifest receiver, not exported)
+  gets the result via `PendingIntent.getBroadcast(..., FLAG_MUTABLE)` and
+  starts the system confirmation intent itself (allowed: the app is in the
+  foreground). Failures are sent to Dart (`installStatus` method) and shown in
+  the update banner; a user cancel is not reported as an error.
+- **Verified:** Install → "Install unknown apps" permission → back → Install →
+  system "Do you want to update this app?" → Update → installed `1.6.14`. The
+  error path was verified too (the emulator was low on storage once; the
+  banner showed `INSTALL_FAILED_INSUFFICIENT_STORAGE` instead of hanging).
+  v1.6.15 (same release cert `9a70fda7…` as v1.6.14) installs over 1.6.14.
+- On a phone, Play Protect may say "App blocked / hasn't seen this developer";
+  it offers to install anyway. That is device policy, not this code.
+- How to retest: `flutter build apk --release --build-name <older> --build-number <lower>`,
+  `adb install -r`, launch, tap Install in the banner.
+
 ## Status-check note (2026-09-22, cross-project audit)
 
 - The versionCode fix directly below is **confirmed shipped and current**:

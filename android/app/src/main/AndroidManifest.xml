@@ -112,6 +112,10 @@
                 <action android:name="es.antonborri.home_widget.action.BACKGROUND"/>
             </intent-filter>
         </receiver>
+        <!-- PackageInstaller commit results (in-app updater). -->
+        <receiver
+            android:name=".InstallStatusReceiver"
+            android:exported="false"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

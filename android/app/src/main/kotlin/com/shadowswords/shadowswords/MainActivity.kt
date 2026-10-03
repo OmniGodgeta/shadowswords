@@ -169,6 +169,9 @@ class MainActivity : FlutterActivity() {
             }
         }
         // Forward MediaSession transport events from the service to Dart.
+        InstallStatusReceiver.statusSink = { msg ->
+            Handler(Looper.getMainLooper()).post { channel?.invokeMethod("installStatus", msg) }
+        }
         MusicService.transportSink = { event ->
             Handler(Looper.getMainLooper()).post {
                 channel?.invokeMethod("transport", event)
@@ -194,6 +197,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         MusicService.transportSink = null
         PartyService.actionSink = null
+        InstallStatusReceiver.statusSink = null
         stopService(Intent(this, MusicService::class.java))
         stopInviteWatch()
         channel = null
@@ -205,13 +209,6 @@ class MainActivity : FlutterActivity() {
         setIntent(intent)
         intent.getStringExtra("joinUrl")?.let { url ->
             Handler(Looper.getMainLooper()).post { channel?.invokeMethod("openInvite", url) }
-        }
-        if (intent.action == ACTION_PACKAGE_INSTALL_STATUS) {
-            // PackageInstaller.Session.commit() result. The install itself either
-            // succeeds silently (app just updates) or the system shows its own
-            // confirmation/error UI — nothing for us to display here, but Dart's
-            // resume-and-recheck flow (see app updater handoff notes below)
-            // already re-verifies the installed version on app resume regardless.
         }
     }
 
@@ -370,11 +367,14 @@ class MainActivity : FlutterActivity() {
                 session.fsync(outputStream)
             }
 
-            val statusIntent = Intent(this, MainActivity::class.java).apply {
+            // Result goes to a broadcast receiver, not this Activity: Android 14+
+            // blocks the system's PendingIntent activity start (see InstallStatusReceiver).
+            val statusIntent = Intent(this, InstallStatusReceiver::class.java).apply {
                 action = ACTION_PACKAGE_INSTALL_STATUS
             }
+            // MUTABLE is required: the system fills in the status extras.
             val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            val pendingIntent = PendingIntent.getActivity(this, sessionId, statusIntent, pendingIntentFlags)
+            val pendingIntent = PendingIntent.getBroadcast(this, sessionId, statusIntent, pendingIntentFlags)
             session.commit(pendingIntent.intentSender)
             session.close()
             "ok"
