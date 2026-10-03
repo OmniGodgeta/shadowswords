@@ -12,8 +12,9 @@
   Selkies' websocket. Quitting the emulator is the server's job
   (`shadowswords-gamelib` 3.31, `watchIdleStreams`) — this app does not call
   `/stream/stop`. Swiping the app away closes the socket the same way.
-- `pubspec.yaml` → `1.6.16+25`. The phone does not get this until that APK
-  is installed. Site JS did not change.
+- `pubspec.yaml` → `1.6.16+25`. Published as GitHub release `v1.6.16`
+  (`app-release.apk`, same cert `9a70fda7…`). The in-app updater offers it
+  over 1.6.15. Site JS did not change.
 
 ## In-app updater actually works now — verified on an emulator (2026-10-02, v1.6.15)
 
