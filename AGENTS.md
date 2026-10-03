@@ -19,7 +19,8 @@ labelled `1.6.13+22`, updating itself to the real GitHub `v1.6.14`:
   system "Do you want to update this app?" → Update → installed `1.6.14`. The
   error path was verified too (the emulator was low on storage once; the
   banner showed `INSTALL_FAILED_INSUFFICIENT_STORAGE` instead of hanging).
-  v1.6.15 (same release cert `9a70fda7…` as v1.6.14) installs over 1.6.14.
+  v1.6.15 (same release cert `9a70fda7…` as v1.6.14) installs over 1.6.14, and
+  v1.6.14's own in-app updater (the older ACTION_VIEW path) updates to it — tested.
 - On a phone, Play Protect may say "App blocked / hasn't seen this developer";
   it offers to install anyway. That is device policy, not this code.
 - How to retest: `flutter build apk --release --build-name <older> --build-number <lower>`,
